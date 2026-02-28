@@ -7,13 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
   Card,
@@ -24,22 +17,52 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Upload } from "lucide-react";
-import { toast } from "sonner";
+import { goeyToast } from "goey-toast";
+import { toastError } from "@/lib/toast";
+import { addItem } from "@/services/items";
+
+const EMPTY_FORM = {
+  item_no: "",
+  name: "",
+  type: "",
+  quantity: "",
+  vehicle_type: "",
+  rack_no: "",
+  returnable: false,
+  description: "",
+};
 
 export default function ItemEntry() {
   const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const set = (field: keyof typeof EMPTY_FORM, value: unknown) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      toast.success("Item added successfully", {
+    try {
+      await addItem({
+        item_no: form.item_no,
+        name: form.name,
+        type: form.type,
+        quantity: Number(form.quantity),
+        vehicle_type: form.vehicle_type || null,
+        rack_no: form.rack_no,
+        returnable: form.returnable,
+        description: form.description,
+        image: null,
+      });
+      goeyToast.success("Item added successfully", {
         description: "The item has been added to inventory",
       });
-      // Reset form or show success message
-    }, 1000);
+      setForm(EMPTY_FORM);
+    } catch (err) {
+      toastError("Failed to add item", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -58,23 +81,34 @@ export default function ItemEntry() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
+                <Label htmlFor="item-no">Card No.</Label>
+                <Input
+                  id="item-no"
+                  placeholder="Enter card number"
+                  value={form.item_no}
+                  onChange={(e) => set("item_no", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="name">Item Name</Label>
-                <Input id="name" placeholder="Enter item name" required />
+                <Input
+                  id="name"
+                  placeholder="Enter item name"
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">Item Type</Label>
-                <Select>
-                  <SelectTrigger id="type">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="weapon">Weapon</SelectItem>
-                    <SelectItem value="vehicle">Vehicle</SelectItem>
-                    <SelectItem value="uniform">Uniform</SelectItem>
-                    <SelectItem value="equipment">Equipment</SelectItem>
-                    <SelectItem value="supply">Supply</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="type"
+                  placeholder="e.g. Weapon, Vehicle, Uniform"
+                  value={form.type}
+                  onChange={(e) => set("type", e.target.value)}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="quantity">Quantity</Label>
@@ -83,32 +117,26 @@ export default function ItemEntry() {
                   type="number"
                   min="1"
                   placeholder="Enter quantity"
+                  value={form.quantity}
+                  onChange={(e) => set("quantity", e.target.value)}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="vehicle-type">
-                  Vehicle Type (if applicable)
-                </Label>
-                <Select>
-                  <SelectTrigger id="vehicle-type">
-                    <SelectValue placeholder="Select vehicle type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tank">Tank</SelectItem>
-                    <SelectItem value="apc">APC</SelectItem>
-                    <SelectItem value="truck">Truck</SelectItem>
-                    <SelectItem value="jeep">Jeep</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="rack-no">Rack Number</Label>
-                <Input id="rack-no" placeholder="Enter rack number" />
+                <Input
+                  id="rack-no"
+                  placeholder="Enter rack number"
+                  value={form.rack_no}
+                  onChange={(e) => set("rack_no", e.target.value)}
+                />
               </div>
               <div className="flex items-center space-x-2 pt-6">
-                <Switch id="returnable" />
+                <Switch
+                  id="returnable"
+                  checked={form.returnable}
+                  onCheckedChange={(v) => set("returnable", v)}
+                />
                 <Label htmlFor="returnable">Returnable Item</Label>
               </div>
             </div>
@@ -118,6 +146,8 @@ export default function ItemEntry() {
                 id="description"
                 placeholder="Enter item description"
                 rows={4}
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -147,8 +177,14 @@ export default function ItemEntry() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button variant="outline">Cancel</Button>
+          <CardFooter className="flex justify-between border-t pt-6">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setForm(EMPTY_FORM)}
+            >
+              Cancel
+            </Button>
             <Button type="submit" disabled={loading}>
               {loading ? "Saving..." : "Save Item"}
             </Button>

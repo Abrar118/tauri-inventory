@@ -2,11 +2,12 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -14,104 +15,298 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import { Upload } from "lucide-react";
-import { toast } from "sonner";
+import { goeyToast } from "goey-toast";
+import { toastError } from "@/lib/toast";
+import { addAsset, getAssets } from "@/services/catalog";
+import type { Asset } from "@/types";
+
+const CATEGORIES = ["Vehicle", "Gun", "Equipment", "Weapon"] as const;
+
+// ─── Autocomplete input ────────────────────────────────────────────────────────
+
+interface AutocompleteInputProps {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  suggestions: string[];
+  placeholder?: string;
+  required?: boolean;
+}
+
+function AutocompleteInput({
+  id,
+  value,
+  onChange,
+  suggestions,
+  placeholder,
+  required,
+}: AutocompleteInputProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = value
+    ? suggestions.filter(
+        (s) => s.toLowerCase().includes(value.toLowerCase()) && s !== value,
+      )
+    : suggestions;
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <Input
+        id={id}
+        value={value}
+        placeholder={placeholder}
+        required={required}
+        autoComplete="off"
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setOpen(false);
+          if (e.key === "Enter" && open) e.preventDefault();
+        }}
+      />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+          {filtered.map((s) => (
+            <li
+              key={s}
+              className="cursor-pointer px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange(s);
+                setOpen(false);
+              }}
+            >
+              {s}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ─── Form ──────────────────────────────────────────────────────────────────────
+
+const EMPTY_FORM = {
+  category: "",
+  catalog_type: "",
+  name: "",
+  catalog_no: "",
+  unit: "",
+  blr: false,
+  ber: false,
+  description: "",
+  image: null as string | null,
+};
 
 export default function VehicleEntry() {
   const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [catalog, setCatalog] = useState<Asset[]>([]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const set = (field: keyof typeof EMPTY_FORM, value: unknown) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  useEffect(() => {
+    getAssets()
+      .then(setCatalog)
+      .catch(() => {});
+  }, []);
+
+  // Suggestions filtered by selected category
+  const categoryPool = form.category
+    ? catalog.filter((a) => a.category === form.category)
+    : catalog;
+
+  const typeSuggestions = [
+    ...new Set(categoryPool.map((a) => a.catalog_type).filter(Boolean)),
+  ];
+  const nameSuggestions = [
+    ...new Set(categoryPool.map((a) => a.name).filter(Boolean)),
+  ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      toast.success("Vehicle added successfully", {
-        description: "The vehicle has been added to inventory",
+    try {
+      await addAsset({
+        catalog_no: form.catalog_no,
+        name: form.name,
+        category: form.category,
+        catalog_type: form.catalog_type,
+        unit: form.unit,
+        blr: form.blr,
+        ber: form.ber,
+        description: form.description,
+        image: form.image,
       });
-      // Reset form or show success message
-    }, 1000);
+      goeyToast.success("Asset added successfully", {
+        description: "The asset has been added to the catalog",
+      });
+      setForm(EMPTY_FORM);
+      getAssets()
+        .then(setCatalog)
+        .catch(() => {});
+    } catch (err) {
+      toastError("Failed to add asset", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Vehicle Entry</h2>
+        <h2 className="text-3xl font-bold tracking-tight">
+          Add Asset
+        </h2>
         <p className="text-muted-foreground">
-          Add a new vehicle to the inventory
+          Add a new asset to the catalog (vehicle, gun, equipment, weapon)
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Vehicle Details</CardTitle>
-          <CardDescription>
-            Enter the details of the new vehicle
-          </CardDescription>
+          <CardTitle>Asset Details</CardTitle>
+          <CardDescription>Enter the details of the new asset</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {/* Category */}
               <div className="space-y-2">
-                <Label htmlFor="vehicle-no">Vehicle Number</Label>
-                <Input
-                  id="vehicle-no"
-                  placeholder="Enter vehicle number"
+                <Label htmlFor="category">Category</Label>
+                <Select
+                  value={form.category}
+                  onValueChange={(v) => set("category", v)}
                   required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="vehicle-type">Vehicle Type</Label>
-                <Select>
-                  <SelectTrigger id="vehicle-type">
-                    <SelectValue placeholder="Select type" />
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="tank">Tank</SelectItem>
-                    <SelectItem value="apc">APC</SelectItem>
-                    <SelectItem value="truck">Truck</SelectItem>
-                    <SelectItem value="jeep">Jeep</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Type — autocomplete */}
+              <div className="space-y-2">
+                <Label htmlFor="catalog-type">Type</Label>
+                <AutocompleteInput
+                  id="catalog-type"
+                  value={form.catalog_type}
+                  onChange={(v) => set("catalog_type", v)}
+                  suggestions={typeSuggestions}
+                  placeholder="e.g. Tank, APC, AK-47"
+                  required
+                />
+              </div>
+
+              {/* Name — autocomplete */}
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <AutocompleteInput
+                  id="name"
+                  value={form.name}
+                  onChange={(v) => set("name", v)}
+                  suggestions={nameSuggestions}
+                  placeholder="e.g. T-72, M16"
+                  required
+                />
+              </div>
+
+              {/* Catalog No. — manual entry */}
+              <div className="space-y-2">
+                <Label htmlFor="catalog-no">Catalog No.</Label>
+                <Input
+                  id="catalog-no"
+                  placeholder="Enter catalog number"
+                  value={form.catalog_no}
+                  onChange={(e) => set("catalog_no", e.target.value)}
+                  required
+                />
+              </div>
+
+              {/* Unit */}
               <div className="space-y-2">
                 <Label htmlFor="unit">Unit</Label>
-                <Input id="unit" placeholder="Enter unit" required />
+                <Input
+                  id="unit"
+                  placeholder="Enter unit"
+                  value={form.unit}
+                  onChange={(e) => set("unit", e.target.value)}
+                  required
+                />
               </div>
-              <div className="space-y-2 flex items-center gap-4">
+
+              {/* BLR / BER */}
+              <div className="flex items-center gap-6 pt-6">
                 <div className="flex items-center space-x-2">
-                  <Switch id="blr" />
+                  <Switch
+                    id="blr"
+                    checked={form.blr}
+                    onCheckedChange={(v) => set("blr", v)}
+                  />
                   <Label htmlFor="blr">BLR</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Switch id="ber" />
+                  <Switch
+                    id="ber"
+                    checked={form.ber}
+                    onCheckedChange={(v) => set("ber", v)}
+                  />
                   <Label htmlFor="ber">BER</Label>
                 </div>
               </div>
             </div>
+
+            {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="notes">Additional Notes</Label>
+              <Label htmlFor="description">Description</Label>
               <Textarea
-                id="notes"
-                placeholder="Enter additional notes"
+                id="description"
+                placeholder="Enter asset description or additional notes"
                 rows={4}
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
               />
             </div>
+
+            {/* Image */}
             <div className="space-y-2">
-              <Label>Vehicle Image</Label>
+              <Label>Asset Image</Label>
               <div className="flex items-center justify-center w-full">
                 <label
-                  htmlFor="image-upload"
+                  htmlFor="asset-image-upload"
                   className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50"
                 >
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -125,7 +320,7 @@ export default function VehicleEntry() {
                     </p>
                   </div>
                   <input
-                    id="image-upload"
+                    id="asset-image-upload"
                     type="file"
                     className="hidden"
                     accept="image/*"
@@ -134,10 +329,16 @@ export default function VehicleEntry() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button variant="outline">Cancel</Button>
+          <CardFooter className="flex justify-between border-t pt-6">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setForm(EMPTY_FORM)}
+            >
+              Cancel
+            </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Save Vehicle"}
+              {loading ? "Saving..." : "Save Asset"}
             </Button>
           </CardFooter>
         </form>

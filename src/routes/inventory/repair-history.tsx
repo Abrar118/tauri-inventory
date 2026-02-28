@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,13 +26,29 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Calendar, Clock, Filter, Search, Truck } from "lucide-react";
-import { dummyRepairs, dummyVehicles } from "../../data/dummy-data";
+import { toastError } from "@/lib/toast";
+import { getRepairs } from "@/services/repairs";
+import { getAssets } from "@/services/catalog";
+import type { Repair, Asset } from "@/types";
 
 export default function RepairHistory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [repairs, setRepairs] = useState<Repair[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredRepairs = dummyRepairs.filter((repair) => {
+  useEffect(() => {
+    Promise.all([getRepairs(), getAssets()])
+      .then(([r, a]) => {
+        setRepairs(r);
+        setAssets(a);
+      })
+      .catch((err) => toastError("Failed to load repair history", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filteredRepairs = repairs.filter((repair) => {
     const matchesSearch = repair.vehicle_no
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
@@ -43,12 +59,12 @@ export default function RepairHistory() {
     return matchesSearch && matchesStatus;
   });
 
-  const getVehicleType = (vehicleNo) => {
-    const vehicle = dummyVehicles.find((v) => v.vehicle_no === vehicleNo);
-    return vehicle ? vehicle.vehicle_type : "Unknown";
+  const getAssetType = (catalogNo: string) => {
+    const asset = assets.find((a) => a.catalog_no === catalogNo);
+    return asset ? asset.catalog_type : "Unknown";
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string | null) => {
     if (!dateString) return "Pending";
     const date = new Date(dateString);
     return new Intl.DateTimeFormat("en-US", {
@@ -60,12 +76,15 @@ export default function RepairHistory() {
     }).format(date);
   };
 
-  const calculateDuration = (inTime, outTime) => {
+  const calculateDuration = (
+    inTime: string,
+    outTime: string | null
+  ) => {
     if (!outTime) return "In Progress";
 
     const start = new Date(inTime);
     const end = new Date(outTime);
-    const diffMs = end - start;
+    const diffMs = end.getTime() - start.getTime();
     const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHrs / 24);
 
@@ -120,7 +139,9 @@ export default function RepairHistory() {
         <CardHeader>
           <CardTitle>Repair Records</CardTitle>
           <CardDescription>
-            Showing {filteredRepairs.length} of {dummyRepairs.length} records
+            {loading
+              ? "Loading..."
+              : `Showing ${filteredRepairs.length} of ${repairs.length} records`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -142,7 +163,7 @@ export default function RepairHistory() {
                   <TableCell className="font-medium">
                     {repair.vehicle_no}
                   </TableCell>
-                  <TableCell>{getVehicleType(repair.vehicle_no)}</TableCell>
+                  <TableCell>{getAssetType(repair.vehicle_no)}</TableCell>
                   <TableCell>
                     <div className="flex items-center">
                       <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />

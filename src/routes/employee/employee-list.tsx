@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,14 +28,38 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Edit, MoreHorizontal, Search, Trash, UserPlus } from "lucide-react";
-import { dummyEmployees } from "../../data/dummy-data";
+import { goeyToast } from "goey-toast";
+import { toastError } from "@/lib/toast";
+import { getEmployees, deleteEmployee } from "@/services/employees";
 import { EditEmployeeModal } from "../../components/edit-employee-modal";
+import { AddEmployeeModal } from "./add-employee";
+import type { Employee } from "@/types";
+import { useAuth } from "@/context/auth-context";
 
 export default function EmployeeList() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [employees, setEmployees] = useState(dummyEmployees);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
+    null
+  );
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const { accountType } = useAuth();
+  const canAddEmployee = accountType === "ADMIN" || accountType === "OC";
+  const canSeeOnline = accountType === "OC" || accountType === "WORKSHOP_OFFICER";
+
+  const isOnline = (employee: Employee): boolean => {
+    if (!employee.last_seen) return false;
+    return Date.now() - new Date(employee.last_seen).getTime() < 5 * 60 * 1000;
+  };
+
+  useEffect(() => {
+    getEmployees()
+      .then(setEmployees)
+      .catch((err) => toastError("Failed to load employees", err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredEmployees = employees.filter(
     (employee) =>
@@ -44,9 +68,25 @@ export default function EmployeeList() {
       employee.account_type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleEdit = (employee) => {
+  const handleEdit = (employee: Employee) => {
     setSelectedEmployee(employee);
     setIsEditModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteEmployee(id);
+      setEmployees((prev) => prev.filter((e) => e.id !== id));
+      goeyToast.success("Employee deleted");
+    } catch (err) {
+      toastError("Failed to delete employee", err);
+    }
+  };
+
+  const handleEmployeeUpdated = (updated: Employee) => {
+    setEmployees((prev) =>
+      prev.map((e) => (e.id === updated.id ? updated : e))
+    );
   };
 
   return (
@@ -69,19 +109,23 @@ export default function EmployeeList() {
             />
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add Employee
-          </Button>
-        </div>
+        {canAddEmployee && (
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setIsAddModalOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add Employee
+            </Button>
+          </div>
+        )}
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Personnel</CardTitle>
           <CardDescription>
-            Showing {filteredEmployees.length} of {employees.length} employees
+            {loading
+              ? "Loading..."
+              : `Showing ${filteredEmployees.length} of ${employees.length} employees`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -93,6 +137,7 @@ export default function EmployeeList() {
                 <TableHead>Phone</TableHead>
                 <TableHead>BA/BJO</TableHead>
                 <TableHead>Account Type</TableHead>
+                {canSeeOnline && <TableHead>Online</TableHead>}
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -121,6 +166,18 @@ export default function EmployeeList() {
                       {employee.account_type.replace("_", " ")}
                     </Badge>
                   </TableCell>
+                  {canSeeOnline && (
+                    <TableCell>
+                      <span
+                        title={isOnline(employee) ? "Online" : "Offline"}
+                        className={`inline-block h-2.5 w-2.5 rounded-full ${
+                          isOnline(employee)
+                            ? "bg-green-500"
+                            : "bg-muted-foreground/30"
+                        }`}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -131,12 +188,21 @@ export default function EmployeeList() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => handleEdit(employee)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          <span>Edit</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        {canAddEmployee && (
+                          <>
+                            <DropdownMenuItem onClick={() => handleEdit(employee)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              <span>Edit</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() =>
+                            employee.id && handleDelete(employee.id)
+                          }
+                        >
                           <Trash className="mr-2 h-4 w-4" />
                           <span>Delete</span>
                         </DropdownMenuItem>
@@ -155,8 +221,15 @@ export default function EmployeeList() {
           employee={selectedEmployee}
           open={isEditModalOpen}
           onOpenChange={setIsEditModalOpen}
+          onUpdated={handleEmployeeUpdated}
         />
       )}
+
+      <AddEmployeeModal
+        open={isAddModalOpen}
+        onOpenChange={setIsAddModalOpen}
+        onAdded={(emp) => setEmployees((prev) => [emp, ...prev])}
+      />
     </div>
   );
 }

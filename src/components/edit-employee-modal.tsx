@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -12,16 +19,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
+import { ACCOUNT_TYPES } from "@/lib/auth";
+import { goeyToast } from "goey-toast";
+import { toastError } from "@/lib/toast";
+import { updateEmployee } from "@/services/employees";
+import type { Employee } from "@/types";
 
-export function EditEmployeeModal({ employee, open, onOpenChange }) {
+interface EditEmployeeModalProps {
+  employee: Employee;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUpdated: (updated: Employee) => void;
+}
+
+export function EditEmployeeModal({
+  employee,
+  open,
+  onOpenChange,
+  onUpdated,
+}: EditEmployeeModalProps) {
   const [formData, setFormData] = useState({
     name: employee.name,
     rank: employee.rank,
@@ -29,22 +45,28 @@ export function EditEmployeeModal({ employee, open, onOpenChange }) {
     ba_bjo: employee.ba_bjo,
     account_type: employee.account_type,
   });
+  const [loading, setLoading] = useState(false);
 
-  const handleChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+  const handleChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    toast.success("Employee updated", {
-      description: "Employee information has been updated successfully",
-    });
-    console.log("Updated employee:", formData);
-    onOpenChange(false);
+    if (!employee.id) return;
+    setLoading(true);
+    try {
+      await updateEmployee(employee.id, formData);
+      goeyToast.success("Employee updated", {
+        description: "Employee information has been updated successfully",
+      });
+      onUpdated({ ...employee, ...formData });
+      onOpenChange(false);
+    } catch (err) {
+      toastError("Failed to update employee", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -59,9 +81,7 @@ export function EditEmployeeModal({ employee, open, onOpenChange }) {
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
+              <Label htmlFor="name" className="text-right">Name</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -70,9 +90,7 @@ export function EditEmployeeModal({ employee, open, onOpenChange }) {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="rank" className="text-right">
-                Rank
-              </Label>
+              <Label htmlFor="rank" className="text-right">Rank</Label>
               <Input
                 id="rank"
                 value={formData.rank}
@@ -81,9 +99,7 @@ export function EditEmployeeModal({ employee, open, onOpenChange }) {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phone" className="text-right">
-                Phone
-              </Label>
+              <Label htmlFor="phone" className="text-right">Phone</Label>
               <Input
                 id="phone"
                 value={formData.phone}
@@ -92,9 +108,7 @@ export function EditEmployeeModal({ employee, open, onOpenChange }) {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="ba_bjo" className="text-right">
-                BA/BJO
-              </Label>
+              <Label htmlFor="ba_bjo" className="text-right">BA/BJO</Label>
               <Input
                 id="ba_bjo"
                 value={formData.ba_bjo}
@@ -108,25 +122,25 @@ export function EditEmployeeModal({ employee, open, onOpenChange }) {
               </Label>
               <Select
                 value={formData.account_type}
-                onValueChange={(value) => handleChange("account_type", value)}
+                onValueChange={(v) => handleChange("account_type", v)}
               >
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger id="account_type" className="col-span-3">
                   <SelectValue placeholder="Select account type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="OC">OC</SelectItem>
-                  <SelectItem value="JCO_NCO">JCO/NCO</SelectItem>
-                  <SelectItem value="WORKSHOP_OFFICER">
-                    Workshop Officer
-                  </SelectItem>
-                  <SelectItem value="WORKER">Worker</SelectItem>
-                  <SelectItem value="RI&I">RI&I</SelectItem>
+                  {ACCOUNT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit">Save changes</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Saving..." : "Save changes"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -1,0 +1,4 @@
+.env
+src-tauri/target
+firebase-config.json
+firebase-web-config.ts

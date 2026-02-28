@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -29,23 +31,156 @@ import {
 } from "@/components/ui/card";
 import {
   Barcode,
+  CheckCircle,
   Edit,
   MoreHorizontal,
   Package,
   Search,
   Trash,
+  XCircle,
 } from "lucide-react";
-import { dummyItems } from "../../data/dummy-data";
+import { goeyToast } from "goey-toast";
+import { toastError } from "@/lib/toast";
+import { getItems, deleteItem, approveItem, rejectItem } from "@/services/items";
+import { useAuth } from "@/context/auth-context";
+import { EditItemModal } from "@/components/edit-item-modal";
+import type { Item } from "@/types";
+
+const APPROVER_ROLES = ["OC", "WORKSHOP_OFFICER"];
 
 export default function ItemList() {
+  const navigate = useNavigate();
+  const { accountType } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const [items, setItems] = useState(dummyItems);
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editItem, setEditItem] = useState<Item | null>(null);
+  const canApprove = accountType !== null && APPROVER_ROLES.includes(accountType);
+
+  useEffect(() => {
+    getItems()
+      .then(setItems)
+      .catch((err) => toastError("Failed to load items", err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredItems = items.filter(
     (item) =>
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.type.toLowerCase().includes(searchTerm.toLowerCase())
+      !item.blr &&
+      !item.ber &&
+      ((item.name ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.type ?? "").toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // ── Selection ──────────────────────────────────────────────────────────────
+
+  const allSelected =
+    filteredItems.length > 0 &&
+    filteredItems.every((i) => i.id && selectedIds.has(i.id));
+  const someSelected =
+    filteredItems.some((i) => i.id && selectedIds.has(i.id)) && !allSelected;
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredItems.flatMap((i) => (i.id ? [i.id] : []))));
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  // ── Single-row actions ─────────────────────────────────────────────────────
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteItem(id);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+      goeyToast.success("Item deleted");
+    } catch (err) {
+      toastError("Failed to delete item", err);
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    try {
+      await approveItem(id);
+      setItems((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, status: "active" } : i))
+      );
+      goeyToast.success("Item approved");
+    } catch (err) {
+      toastError("Failed to approve item", err);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    try {
+      await rejectItem(id);
+      setItems((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, status: "rejected" } : i))
+      );
+      goeyToast.success("Item rejected");
+    } catch (err) {
+      toastError("Failed to reject item", err);
+    }
+  };
+
+  // ── Bulk actions ───────────────────────────────────────────────────────────
+
+  const handleBulkApprove = async () => {
+    const ids = [...selectedIds].filter((id) =>
+      items.find((i) => i.id === id)?.status === "pending"
+    );
+    if (ids.length === 0) { goeyToast.error("No pending items in selection"); return; }
+    try {
+      await Promise.all(ids.map(approveItem));
+      setItems((prev) =>
+        prev.map((i) => (i.id && ids.includes(i.id) ? { ...i, status: "active" } : i))
+      );
+      setSelectedIds(new Set());
+      goeyToast.success(`${ids.length} item${ids.length > 1 ? "s" : ""} approved`);
+    } catch (err) {
+      toastError("Bulk approve failed", err);
+    }
+  };
+
+  const handleBulkReject = async () => {
+    const ids = [...selectedIds].filter((id) =>
+      items.find((i) => i.id === id)?.status === "pending"
+    );
+    if (ids.length === 0) { goeyToast.error("No pending items in selection"); return; }
+    try {
+      await Promise.all(ids.map(rejectItem));
+      setItems((prev) =>
+        prev.map((i) => (i.id && ids.includes(i.id) ? { ...i, status: "rejected" } : i))
+      );
+      setSelectedIds(new Set());
+      goeyToast.success(`${ids.length} item${ids.length > 1 ? "s" : ""} rejected`);
+    } catch (err) {
+      toastError("Bulk reject failed", err);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIds];
+    try {
+      await Promise.all(ids.map(deleteItem));
+      setItems((prev) => prev.filter((i) => !i.id || !ids.includes(i.id)));
+      setSelectedIds(new Set());
+      goeyToast.success(`${ids.length} item${ids.length > 1 ? "s" : ""} deleted`);
+    } catch (err) {
+      toastError("Bulk delete failed", err);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -68,7 +203,7 @@ export default function ItemList() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button>
+          <Button onClick={() => navigate("/inventory/item-entry")}>
             <Package className="mr-2 h-4 w-4" />
             Add Item
           </Button>
@@ -79,28 +214,86 @@ export default function ItemList() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-4 py-2">
+          <span className="text-sm font-medium mr-2">
+            {selectedIds.size} selected
+          </span>
+          {canApprove && (
+            <>
+              <Button size="sm" variant="outline" onClick={handleBulkApprove}>
+                <CheckCircle className="mr-1.5 h-3.5 w-3.5 text-green-600" />
+                Approve
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleBulkReject}>
+                <XCircle className="mr-1.5 h-3.5 w-3.5 text-yellow-600" />
+                Reject
+              </Button>
+            </>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive hover:text-destructive"
+            onClick={handleBulkDelete}
+          >
+            <Trash className="mr-1.5 h-3.5 w-3.5" />
+            Delete
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Clear
+          </Button>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Inventory Items</CardTitle>
           <CardDescription>
-            Showing {filteredItems.length} of {items.length} items
+            {loading
+              ? "Loading..."
+              : `Showing ${filteredItems.length} of ${items.length} items`}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                    onCheckedChange={toggleAll}
+                  />
+                </TableHead>
+                <TableHead>Card No.</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Quantity</TableHead>
                 <TableHead>Rack No.</TableHead>
                 <TableHead>Returnable</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredItems.map((item) => (
-                <TableRow key={item.id}>
+                <TableRow
+                  key={item.id}
+                  data-state={item.id && selectedIds.has(item.id) ? "selected" : undefined}
+                >
+                  <TableCell>
+                    <Checkbox
+                      checked={!!(item.id && selectedIds.has(item.id))}
+                      onCheckedChange={() => item.id && toggleOne(item.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">{item.item_no}</TableCell>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>
                     <Badge
@@ -123,6 +316,30 @@ export default function ItemList() {
                   <TableCell>{item.quantity}</TableCell>
                   <TableCell>{item.rack_no}</TableCell>
                   <TableCell>{item.returnable ? "Yes" : "No"}</TableCell>
+                  <TableCell>
+                    {item.status === "pending" ? (
+                      <Badge
+                        variant="outline"
+                        className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                      >
+                        Pending
+                      </Badge>
+                    ) : item.status === "rejected" ? (
+                      <Badge
+                        variant="outline"
+                        className="bg-destructive/10 text-destructive border-destructive/20"
+                      >
+                        Rejected
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="bg-green-500/10 text-green-600 border-green-500/20"
+                      >
+                        Active
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -133,7 +350,23 @@ export default function ItemList() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>
+                        {canApprove && item.status === "pending" && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => item.id && handleApprove(item.id)}
+                            >
+                              <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                              <span>Approve</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => item.id && handleReject(item.id)}
+                            >
+                              <XCircle className="mr-2 h-4 w-4 text-yellow-600" />
+                              <span>Reject</span>
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        <DropdownMenuItem onClick={() => setEditItem(item)}>
                           <Edit className="mr-2 h-4 w-4" />
                           <span>Edit</span>
                         </DropdownMenuItem>
@@ -142,7 +375,10 @@ export default function ItemList() {
                           <span>Generate Barcode</span>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => item.id && handleDelete(item.id)}
+                        >
                           <Trash className="mr-2 h-4 w-4" />
                           <span>Delete</span>
                         </DropdownMenuItem>
@@ -155,6 +391,17 @@ export default function ItemList() {
           </Table>
         </CardContent>
       </Card>
+      {editItem && (
+        <EditItemModal
+          item={editItem}
+          open={!!editItem}
+          onOpenChange={(o) => { if (!o) setEditItem(null); }}
+          onUpdated={(updated) => {
+            setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+            setEditItem(null);
+          }}
+        />
+      )}
     </div>
   );
 }

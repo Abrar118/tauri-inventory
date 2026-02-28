@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,31 +23,53 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Search } from "lucide-react";
-import { dummyItems, dummyEmployees } from "../../data/dummy-data";
-import { toast } from "sonner";
+import { goeyToast } from "goey-toast";
+import { toastError } from "@/lib/toast";
+import { getItems } from "@/services/items";
+import { getEmployees } from "@/services/employees";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import type { Item, Employee } from "@/types";
+
+interface SelectedItem extends Item {
+  issueQuantity: number;
+}
 
 export default function ItemIssue() {
   const [loading, setLoading] = useState(false);
-  const [selectedItems, setSelectedItems] = useState([]);
+  const [items, setItems] = useState<Item[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [recipientId, setRecipientId] = useState("");
+  const [purpose, setPurpose] = useState("");
 
-  const filteredItems = dummyItems.filter(
+  useEffect(() => {
+    getItems()
+      .then(setItems)
+      .catch((err) => toastError("Failed to load items", err));
+    getEmployees()
+      .then(setEmployees)
+      .catch((err) => toastError("Failed to load employees", err));
+  }, []);
+
+  const filteredItems = items.filter(
     (item) =>
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleAddItem = (item) => {
+  const handleAddItem = (item: Item) => {
     if (!selectedItems.find((i) => i.id === item.id)) {
       setSelectedItems([...selectedItems, { ...item, issueQuantity: 1 }]);
     }
   };
 
-  const handleRemoveItem = (itemId) => {
+  const handleRemoveItem = (itemId: string) => {
     setSelectedItems(selectedItems.filter((item) => item.id !== itemId));
   };
 
-  const handleQuantityChange = (itemId, quantity) => {
+  const handleQuantityChange = (itemId: string, quantity: string) => {
     setSelectedItems(
       selectedItems.map((item) =>
         item.id === itemId
@@ -57,18 +79,40 @@ export default function ItemIssue() {
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!recipientId) {
+      goeyToast.error("Please select a recipient");
+      return;
+    }
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      toast.success("Items issued successfully", {
+    try {
+      const recipient = employees.find((emp) => emp.id === recipientId);
+      await addDoc(collection(db, "issues"), {
+        employee_id: recipientId,
+        employee_name: recipient
+          ? `${recipient.rank} ${recipient.name}`
+          : recipientId,
+        items: selectedItems.map(({ id, name, type, issueQuantity }) => ({
+          item_id: id,
+          name,
+          type,
+          quantity: issueQuantity,
+        })),
+        purpose,
+        issue_date: serverTimestamp(),
+      });
+      goeyToast.success("Items issued successfully", {
         description: `${selectedItems.length} items have been issued`,
       });
       setSelectedItems([]);
-      // Show success message
-    }, 1000);
+      setRecipientId("");
+      setPurpose("");
+    } catch (err) {
+      toastError("Failed to issue items", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -126,16 +170,13 @@ export default function ItemIssue() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="recipient">Recipient</Label>
-                <Select>
+                <Select value={recipientId} onValueChange={setRecipientId}>
                   <SelectTrigger id="recipient">
                     <SelectValue placeholder="Select recipient" />
                   </SelectTrigger>
                   <SelectContent>
-                    {dummyEmployees.map((employee) => (
-                      <SelectItem
-                        key={employee.id}
-                        value={employee.id.toString()}
-                      >
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id!}>
                         {employee.rank} {employee.name}
                       </SelectItem>
                     ))}
@@ -174,14 +215,15 @@ export default function ItemIssue() {
                             max={item.quantity}
                             value={item.issueQuantity}
                             onChange={(e) =>
-                              handleQuantityChange(item.id, e.target.value)
+                              handleQuantityChange(item.id!, e.target.value)
                             }
                             className="w-16"
                           />
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleRemoveItem(item.id)}
+                            type="button"
+                            onClick={() => handleRemoveItem(item.id!)}
                           >
                             ×
                           </Button>
@@ -198,6 +240,8 @@ export default function ItemIssue() {
                   id="purpose"
                   placeholder="Enter purpose of issue"
                   rows={3}
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
                 />
               </div>
             </CardContent>
