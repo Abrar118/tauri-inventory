@@ -28,7 +28,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CheckCircle, Edit, MoreHorizontal, PackagePlus, Search, Trash, XCircle } from "lucide-react";
+import {
+  CheckCircle,
+  Edit,
+  MoreHorizontal,
+  PackagePlus,
+  Search,
+  Trash,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { EditVehicleModal } from "@/components/edit-vehicle-modal";
@@ -53,7 +61,8 @@ export default function VehicleList() {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editAsset, setEditAsset] = useState<Asset | null>(null);
-  const canApprove = accountType !== null && APPROVER_ROLES.includes(accountType);
+  const canApprove =
+    accountType !== null && APPROVER_ROLES.includes(accountType);
 
   useEffect(() => {
     getAssets()
@@ -68,7 +77,7 @@ export default function VehicleList() {
       a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       a.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
       a.catalog_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.unit.toLowerCase().includes(searchTerm.toLowerCase())
+      a.unit.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   // ── Selection ──────────────────────────────────────────────────────────────
@@ -100,7 +109,11 @@ export default function VehicleList() {
     try {
       await deleteAsset(id);
       setAssets((prev) => prev.filter((a) => a.id !== id));
-      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+      setSelectedIds((prev) => {
+        const n = new Set(prev);
+        n.delete(id);
+        return n;
+      });
       goeyToast.success("Asset deleted");
     } catch (err) {
       toastError("Failed to delete asset", err);
@@ -111,7 +124,7 @@ export default function VehicleList() {
     try {
       await approveAsset(id);
       setAssets((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, status: "active" } : a))
+        prev.map((a) => (a.id === id ? { ...a, status: "active" } : a)),
       );
       goeyToast.success("Asset approved");
     } catch (err) {
@@ -123,7 +136,7 @@ export default function VehicleList() {
     try {
       await rejectAsset(id);
       setAssets((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, status: "rejected" } : a))
+        prev.map((a) => (a.id === id ? { ...a, status: "rejected" } : a)),
       );
       goeyToast.success("Asset rejected");
     } catch (err) {
@@ -134,34 +147,48 @@ export default function VehicleList() {
   // ── Bulk actions ───────────────────────────────────────────────────────────
 
   const handleBulkApprove = async () => {
-    const ids = [...selectedIds].filter((id) =>
-      assets.find((a) => a.id === id)?.status === "pending"
+    const ids = [...selectedIds].filter(
+      (id) => assets.find((a) => a.id === id)?.status === "pending",
     );
-    if (ids.length === 0) { goeyToast.error("No pending assets in selection"); return; }
+    if (ids.length === 0) {
+      goeyToast.error("No pending assets in selection");
+      return;
+    }
     try {
       await Promise.all(ids.map(approveAsset));
       setAssets((prev) =>
-        prev.map((a) => (a.id && ids.includes(a.id) ? { ...a, status: "active" } : a))
+        prev.map((a) =>
+          a.id && ids.includes(a.id) ? { ...a, status: "active" } : a,
+        ),
       );
       setSelectedIds(new Set());
-      goeyToast.success(`${ids.length} asset${ids.length > 1 ? "s" : ""} approved`);
+      goeyToast.success(
+        `${ids.length} asset${ids.length > 1 ? "s" : ""} approved`,
+      );
     } catch (err) {
       toastError("Bulk approve failed", err);
     }
   };
 
   const handleBulkReject = async () => {
-    const ids = [...selectedIds].filter((id) =>
-      assets.find((a) => a.id === id)?.status === "pending"
+    const ids = [...selectedIds].filter(
+      (id) => assets.find((a) => a.id === id)?.status === "pending",
     );
-    if (ids.length === 0) { goeyToast.error("No pending assets in selection"); return; }
+    if (ids.length === 0) {
+      goeyToast.error("No pending assets in selection");
+      return;
+    }
     try {
       await Promise.all(ids.map(rejectAsset));
       setAssets((prev) =>
-        prev.map((a) => (a.id && ids.includes(a.id) ? { ...a, status: "rejected" } : a))
+        prev.map((a) =>
+          a.id && ids.includes(a.id) ? { ...a, status: "rejected" } : a,
+        ),
       );
       setSelectedIds(new Set());
-      goeyToast.success(`${ids.length} asset${ids.length > 1 ? "s" : ""} rejected`);
+      goeyToast.success(
+        `${ids.length} asset${ids.length > 1 ? "s" : ""} rejected`,
+      );
     } catch (err) {
       toastError("Bulk reject failed", err);
     }
@@ -173,7 +200,9 @@ export default function VehicleList() {
       await Promise.all(ids.map(deleteAsset));
       setAssets((prev) => prev.filter((a) => !a.id || !ids.includes(a.id)));
       setSelectedIds(new Set());
-      goeyToast.success(`${ids.length} asset${ids.length > 1 ? "s" : ""} deleted`);
+      goeyToast.success(
+        `${ids.length} asset${ids.length > 1 ? "s" : ""} deleted`,
+      );
     } catch (err) {
       toastError("Bulk delete failed", err);
     }
@@ -258,7 +287,13 @@ export default function VehicleList() {
               <TableRow>
                 <TableHead className="w-10">
                   <Checkbox
-                    checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                    checked={
+                      allSelected
+                        ? true
+                        : someSelected
+                          ? "indeterminate"
+                          : false
+                    }
                     onCheckedChange={toggleAll}
                   />
                 </TableHead>
@@ -276,13 +311,17 @@ export default function VehicleList() {
               {filtered.map((asset) => (
                 <TableRow
                   key={asset.id}
-                  data-state={asset.id && selectedIds.has(asset.id) ? "selected" : undefined}
+                  data-state={
+                    asset.id && selectedIds.has(asset.id)
+                      ? "selected"
+                      : undefined
+                  }
                   className={cn(
                     asset.ber
                       ? "bg-destructive/10 hover:bg-destructive/15"
                       : asset.blr
-                      ? "bg-chart-3/10 hover:bg-chart-3/15"
-                      : ""
+                        ? "bg-chart-3/10 hover:bg-chart-3/15"
+                        : "",
                   )}
                 >
                   <TableCell>
@@ -361,7 +400,9 @@ export default function VehicleList() {
                         {canApprove && asset.status === "pending" && (
                           <>
                             <DropdownMenuItem
-                              onClick={() => asset.id && handleApprove(asset.id)}
+                              onClick={() =>
+                                asset.id && handleApprove(asset.id)
+                              }
                             >
                               <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
                               <span>Approve</span>
@@ -400,9 +441,13 @@ export default function VehicleList() {
         <EditVehicleModal
           vehicle={editAsset}
           open={!!editAsset}
-          onOpenChange={(o) => { if (!o) setEditAsset(null); }}
+          onOpenChange={(o) => {
+            if (!o) setEditAsset(null);
+          }}
           onUpdated={(updated) => {
-            setAssets((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+            setAssets((prev) =>
+              prev.map((a) => (a.id === updated.id ? updated : a)),
+            );
             setEditAsset(null);
           }}
         />

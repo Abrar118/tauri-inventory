@@ -78,7 +78,12 @@ export function EditItemModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!loading) onOpenChange(o); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!loading) onOpenChange(o);
+      }}
+    >
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
           <DialogTitle>Edit Item</DialogTitle>

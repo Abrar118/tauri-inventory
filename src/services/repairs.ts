@@ -12,7 +12,7 @@ const COLLECTION = "repairs";
 
 export async function getRepairs(): Promise<Repair[]> {
   const snapshot = await getDocs(collection(db, COLLECTION));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Repair));
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Repair);
 }
 
 export async function addRepair(repair: Omit<Repair, "id">): Promise<string> {
@@ -22,7 +22,7 @@ export async function addRepair(repair: Omit<Repair, "id">): Promise<string> {
 
 export async function updateRepair(
   id: string,
-  data: Partial<Omit<Repair, "id">>
+  data: Partial<Omit<Repair, "id">>,
 ): Promise<void> {
   await updateDoc(doc(db, COLLECTION, id), data);
 }

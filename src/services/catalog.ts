@@ -13,10 +13,12 @@ const COLLECTION = "catalog";
 
 export async function getAssets(): Promise<Asset[]> {
   const snapshot = await getDocs(collection(db, COLLECTION));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Asset));
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Asset);
 }
 
-export async function addAsset(asset: Omit<Asset, "id">): Promise<string> {
+export async function addAsset(
+  asset: Omit<Asset, "id" | "status">,
+): Promise<string> {
   const ref = await addDoc(collection(db, COLLECTION), {
     ...asset,
     status: "pending",
@@ -38,7 +40,7 @@ export async function deleteAsset(id: string): Promise<void> {
 
 export async function updateAsset(
   id: string,
-  data: Partial<Omit<Asset, "id">>
+  data: Partial<Omit<Asset, "id">>,
 ): Promise<void> {
   await updateDoc(doc(db, COLLECTION, id), data);
 }

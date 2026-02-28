@@ -13,7 +13,7 @@ const COLLECTION = "entries";
 
 export async function getEntries(): Promise<Entry[]> {
   const snapshot = await getDocs(collection(db, COLLECTION));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Entry));
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Entry);
 }
 
 export async function addEntry(entry: Omit<Entry, "id">): Promise<string> {
@@ -26,7 +26,7 @@ export async function addEntry(entry: Omit<Entry, "id">): Promise<string> {
 
 export async function updateEntry(
   id: string,
-  data: Partial<Omit<Entry, "id">>
+  data: Partial<Omit<Entry, "id">>,
 ): Promise<void> {
   await updateDoc(doc(db, COLLECTION, id), data);
 }

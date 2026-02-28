@@ -26,10 +26,10 @@ export const signIn = (email: string, password: string) =>
 
 export async function signInWithUsername(
   username: string,
-  password: string
+  password: string,
 ): Promise<void> {
   const snap = await getDocs(
-    query(collection(db, "employees"), where("username", "==", username))
+    query(collection(db, "employees"), where("username", "==", username)),
   );
   if (snap.empty) {
     const err = new Error("No account found with this username");
@@ -55,7 +55,7 @@ export async function createUser(email: string, password: string) {
       messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
       appId: import.meta.env.VITE_FIREBASE_APP_ID,
     },
-    `secondary-${Date.now()}`
+    `secondary-${Date.now()}`,
   );
   const secondaryAuth = getAuth(secondaryApp);
   try {

@@ -13,11 +13,11 @@ const COLLECTION = "employees";
 
 export async function getEmployees(): Promise<Employee[]> {
   const snapshot = await getDocs(collection(db, COLLECTION));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Employee));
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Employee);
 }
 
 export async function addEmployee(
-  employee: Omit<Employee, "id">
+  employee: Omit<Employee, "id">,
 ): Promise<string> {
   const ref = await addDoc(collection(db, COLLECTION), employee);
   return ref.id;
@@ -25,7 +25,7 @@ export async function addEmployee(
 
 export async function updateEmployee(
   id: string,
-  data: Partial<Omit<Employee, "id">>
+  data: Partial<Omit<Employee, "id">>,
 ): Promise<void> {
   await updateDoc(doc(db, COLLECTION, id), data);
 }

@@ -19,7 +19,7 @@ function verboseDescription(err: unknown): string {
 export function toastError(
   title: string,
   err?: unknown,
-  description?: string
+  description?: string,
 ): void {
   if (isDev && err !== undefined) {
     goeyToast.error(`[DEV] ${title}`, {

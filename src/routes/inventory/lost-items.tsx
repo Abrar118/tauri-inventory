@@ -5,7 +5,9 @@ export default function LostItems() {
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Lost Items</h2>
-        <p className="text-muted-foreground">Track and manage missing inventory</p>
+        <p className="text-muted-foreground">
+          Track and manage missing inventory
+        </p>
       </div>
       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-4">
         <PackageX className="h-16 w-16 opacity-30" />

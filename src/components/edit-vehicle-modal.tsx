@@ -74,7 +74,12 @@ export function EditVehicleModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!loading) onOpenChange(o); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!loading) onOpenChange(o);
+      }}
+    >
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
           <DialogTitle>Edit Asset</DialogTitle>
@@ -114,7 +119,9 @@ export function EditVehicleModal({
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

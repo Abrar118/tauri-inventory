@@ -57,8 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const snap = await getDocs(
             query(
               collection(db, "employees"),
-              where("email", "==", firebaseUser.email)
-            )
+              where("email", "==", firebaseUser.email),
+            ),
           );
           if (!snap.empty) {
             const docId = snap.docs[0].id;
@@ -96,7 +96,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, profile, accountType: profile?.accountType ?? null, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        accountType: profile?.accountType ?? null,
+        loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

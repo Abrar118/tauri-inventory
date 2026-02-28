@@ -63,7 +63,7 @@ export default function OutStationRepair() {
       const existing = prev.find((p) => p.item_no === item_no);
       if (existing) {
         return prev.map((p) =>
-          p.item_no === item_no ? { ...p, quantity: p.quantity + partQty } : p
+          p.item_no === item_no ? { ...p, quantity: p.quantity + partQty } : p,
         );
       }
       return [...prev, { item_no, quantity: partQty }];
@@ -128,7 +128,6 @@ export default function OutStationRepair() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
               {/* Category */}
               <div className="space-y-2">
                 <Label>Category</Label>
@@ -144,7 +143,9 @@ export default function OutStationRepair() {
                   </SelectTrigger>
                   <SelectContent>
                     {CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -205,7 +206,6 @@ export default function OutStationRepair() {
                   required
                 />
               </div>
-
             </div>
 
             {/* Issued Parts */}

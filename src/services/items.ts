@@ -14,10 +14,12 @@ const COLLECTION = "items";
 
 export async function getItems(): Promise<Item[]> {
   const snapshot = await getDocs(collection(db, COLLECTION));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Item));
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Item);
 }
 
-export async function addItem(item: Omit<Item, "id">): Promise<string> {
+export async function addItem(
+  item: Omit<Item, "id" | "status" | "blr" | "ber" | "created_at">,
+): Promise<string> {
   const ref = await addDoc(collection(db, COLLECTION), {
     ...item,
     status: "pending",
@@ -38,7 +40,7 @@ export async function rejectItem(id: string): Promise<void> {
 
 export async function updateItem(
   id: string,
-  data: Partial<Omit<Item, "id">>
+  data: Partial<Omit<Item, "id">>,
 ): Promise<void> {
   await updateDoc(doc(db, COLLECTION, id), data);
 }

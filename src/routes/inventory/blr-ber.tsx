@@ -32,18 +32,27 @@ import type { Item, Asset } from "@/types";
 function StatusBadge({ blr, ber }: { blr: boolean; ber: boolean }) {
   if (ber)
     return (
-      <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
+      <Badge
+        variant="outline"
+        className="bg-destructive/10 text-destructive border-destructive/20"
+      >
         BER
       </Badge>
     );
   if (blr)
     return (
-      <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20">
+      <Badge
+        variant="outline"
+        className="bg-orange-500/10 text-orange-600 border-orange-500/20"
+      >
         BLR
       </Badge>
     );
   return (
-    <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+    <Badge
+      variant="outline"
+      className="bg-green-500/10 text-green-600 border-green-500/20"
+    >
       OK
     </Badge>
   );
@@ -100,12 +109,19 @@ export default function BlrBer() {
   const [loading, setLoading] = useState(true);
   const [itemSearch, setItemSearch] = useState("");
   const [assetSearch, setAssetSearch] = useState("");
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
-  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   useEffect(() => {
     Promise.all([getItems(), getAssets()])
-      .then(([i, a]) => { setItems(i); setAssets(a); })
+      .then(([i, a]) => {
+        setItems(i);
+        setAssets(a);
+      })
       .catch((err) => toastError("Failed to load data", err))
       .finally(() => setLoading(false));
   }, []);
@@ -113,13 +129,13 @@ export default function BlrBer() {
   const filteredItems = items.filter(
     (i) =>
       i.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
-      i.item_no.toLowerCase().includes(itemSearch.toLowerCase())
+      i.item_no.toLowerCase().includes(itemSearch.toLowerCase()),
   );
 
   const filteredAssets = assets.filter(
     (a) =>
       a.name.toLowerCase().includes(assetSearch.toLowerCase()) ||
-      a.catalog_no.toLowerCase().includes(assetSearch.toLowerCase())
+      a.catalog_no.toLowerCase().includes(assetSearch.toLowerCase()),
   );
 
   // ── Selection helpers ──────────────────────────────────────────────────────
@@ -128,11 +144,17 @@ export default function BlrBer() {
     (
       filtered: { id?: string }[],
       selected: Set<string>,
-      setSelected: React.Dispatch<React.SetStateAction<Set<string>>>
+      setSelected: React.Dispatch<React.SetStateAction<Set<string>>>,
     ) =>
     () => {
-      const allSel = filtered.length > 0 && filtered.every((x) => x.id && selected.has(x.id));
-      setSelected(allSel ? new Set() : new Set(filtered.flatMap((x) => (x.id ? [x.id] : []))));
+      const allSel =
+        filtered.length > 0 &&
+        filtered.every((x) => x.id && selected.has(x.id));
+      setSelected(
+        allSel
+          ? new Set()
+          : new Set(filtered.flatMap((x) => (x.id ? [x.id] : []))),
+      );
     };
 
   const makeToggleOne =
@@ -146,19 +168,30 @@ export default function BlrBer() {
     };
 
   const allItemsSel =
-    filteredItems.length > 0 && filteredItems.every((i) => i.id && selectedItemIds.has(i.id));
+    filteredItems.length > 0 &&
+    filteredItems.every((i) => i.id && selectedItemIds.has(i.id));
   const someItemsSel =
-    filteredItems.some((i) => i.id && selectedItemIds.has(i.id)) && !allItemsSel;
+    filteredItems.some((i) => i.id && selectedItemIds.has(i.id)) &&
+    !allItemsSel;
 
   const allAssetsSel =
     filteredAssets.length > 0 &&
     filteredAssets.every((a) => a.id && selectedAssetIds.has(a.id));
   const someAssetsSel =
-    filteredAssets.some((a) => a.id && selectedAssetIds.has(a.id)) && !allAssetsSel;
+    filteredAssets.some((a) => a.id && selectedAssetIds.has(a.id)) &&
+    !allAssetsSel;
 
-  const toggleAllItems = makeToggleAll(filteredItems, selectedItemIds, setSelectedItemIds);
+  const toggleAllItems = makeToggleAll(
+    filteredItems,
+    selectedItemIds,
+    setSelectedItemIds,
+  );
   const toggleItem = makeToggleOne(setSelectedItemIds);
-  const toggleAllAssets = makeToggleAll(filteredAssets, selectedAssetIds, setSelectedAssetIds);
+  const toggleAllAssets = makeToggleAll(
+    filteredAssets,
+    selectedAssetIds,
+    setSelectedAssetIds,
+  );
   const toggleAsset = makeToggleOne(setSelectedAssetIds);
 
   // ── Bulk mark ──────────────────────────────────────────────────────────────
@@ -169,11 +202,13 @@ export default function BlrBer() {
     try {
       await Promise.all(ids.map((id) => updateItem(id, { blr, ber })));
       setItems((prev) =>
-        prev.map((i) => (i.id && ids.includes(i.id) ? { ...i, blr, ber } : i))
+        prev.map((i) => (i.id && ids.includes(i.id) ? { ...i, blr, ber } : i)),
       );
       setSelectedItemIds(new Set());
       const label = ber ? "BER" : blr ? "BLR" : "normal";
-      goeyToast.success(`${ids.length} item${ids.length > 1 ? "s" : ""} marked as ${label}`);
+      goeyToast.success(
+        `${ids.length} item${ids.length > 1 ? "s" : ""} marked as ${label}`,
+      );
     } catch (err) {
       toastError("Failed to update items", err);
     }
@@ -185,11 +220,13 @@ export default function BlrBer() {
     try {
       await Promise.all(ids.map((id) => updateAsset(id, { blr, ber })));
       setAssets((prev) =>
-        prev.map((a) => (a.id && ids.includes(a.id) ? { ...a, blr, ber } : a))
+        prev.map((a) => (a.id && ids.includes(a.id) ? { ...a, blr, ber } : a)),
       );
       setSelectedAssetIds(new Set());
       const label = ber ? "BER" : blr ? "BLR" : "normal";
-      goeyToast.success(`${ids.length} asset${ids.length > 1 ? "s" : ""} marked as ${label}`);
+      goeyToast.success(
+        `${ids.length} asset${ids.length > 1 ? "s" : ""} marked as ${label}`,
+      );
     } catch (err) {
       toastError("Failed to update assets", err);
     }
@@ -244,7 +281,13 @@ export default function BlrBer() {
                   <TableRow>
                     <TableHead className="w-10">
                       <Checkbox
-                        checked={allAssetsSel ? true : someAssetsSel ? "indeterminate" : false}
+                        checked={
+                          allAssetsSel
+                            ? true
+                            : someAssetsSel
+                              ? "indeterminate"
+                              : false
+                        }
                         onCheckedChange={toggleAllAssets}
                       />
                     </TableHead>
@@ -261,23 +304,31 @@ export default function BlrBer() {
                     <TableRow
                       key={asset.id}
                       data-state={
-                        asset.id && selectedAssetIds.has(asset.id) ? "selected" : undefined
+                        asset.id && selectedAssetIds.has(asset.id)
+                          ? "selected"
+                          : undefined
                       }
                       className={cn(
                         asset.ber
                           ? "bg-destructive/10 hover:bg-destructive/15"
                           : asset.blr
-                          ? "bg-chart-3/10 hover:bg-chart-3/15"
-                          : ""
+                            ? "bg-chart-3/10 hover:bg-chart-3/15"
+                            : "",
                       )}
                     >
                       <TableCell>
                         <Checkbox
-                          checked={!!(asset.id && selectedAssetIds.has(asset.id))}
-                          onCheckedChange={() => asset.id && toggleAsset(asset.id)}
+                          checked={
+                            !!(asset.id && selectedAssetIds.has(asset.id))
+                          }
+                          onCheckedChange={() =>
+                            asset.id && toggleAsset(asset.id)
+                          }
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{asset.catalog_no}</TableCell>
+                      <TableCell className="font-medium">
+                        {asset.catalog_no}
+                      </TableCell>
                       <TableCell>{asset.name}</TableCell>
                       <TableCell>{asset.category}</TableCell>
                       <TableCell>{asset.catalog_type}</TableCell>
@@ -327,7 +378,13 @@ export default function BlrBer() {
                   <TableRow>
                     <TableHead className="w-10">
                       <Checkbox
-                        checked={allItemsSel ? true : someItemsSel ? "indeterminate" : false}
+                        checked={
+                          allItemsSel
+                            ? true
+                            : someItemsSel
+                              ? "indeterminate"
+                              : false
+                        }
                         onCheckedChange={toggleAllItems}
                       />
                     </TableHead>
@@ -343,14 +400,16 @@ export default function BlrBer() {
                     <TableRow
                       key={item.id}
                       data-state={
-                        item.id && selectedItemIds.has(item.id) ? "selected" : undefined
+                        item.id && selectedItemIds.has(item.id)
+                          ? "selected"
+                          : undefined
                       }
                       className={cn(
                         item.ber
                           ? "bg-destructive/10 hover:bg-destructive/15"
                           : item.blr
-                          ? "bg-chart-3/10 hover:bg-chart-3/15"
-                          : ""
+                            ? "bg-chart-3/10 hover:bg-chart-3/15"
+                            : "",
                       )}
                     >
                       <TableCell>
@@ -359,7 +418,9 @@ export default function BlrBer() {
                           onCheckedChange={() => item.id && toggleItem(item.id)}
                         />
                       </TableCell>
-                      <TableCell className="font-mono text-sm">{item.item_no}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {item.item_no}
+                      </TableCell>
                       <TableCell>{item.name}</TableCell>
                       <TableCell>{item.type}</TableCell>
                       <TableCell>{item.quantity}</TableCell>

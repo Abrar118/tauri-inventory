@@ -57,22 +57,6 @@ pub struct Employee {
     pub last_login: String,
 }
 
-/// Generic asset catalog — vehicles, weapons, equipment, etc.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Vehicle {
-    pub id: Option<String>,
-    pub vehicle_no: String,
-    pub name: String,
-    pub category: String,     // Vehicle, Weapon, Equipment, etc.
-    pub vehicle_type: String, // specific type within category
-    pub unit: String,
-    pub blr: bool,
-    pub ber: bool,
-    pub description: String,
-    pub image: Option<String>,
-    pub status: ApprovalStatus,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Repair {
     pub id: Option<String>,
@@ -86,6 +70,22 @@ pub struct Repair {
 pub struct IssuedPart {
     pub item_no: String,
     pub quantity: u32,
+}
+
+/// Catalog asset — vehicle, gun, equipment, or weapon available for repair entries.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Asset {
+    pub id: Option<String>,
+    pub catalog_no: String,
+    pub name: String,
+    pub category: String,       // "Vehicle" | "Gun" | "Equipment" | "Weapon"
+    pub catalog_type: String,   // specific type within category
+    pub unit: String,
+    pub blr: bool,
+    pub ber: bool,
+    pub description: String,
+    pub image: Option<String>,
+    pub status: ApprovalStatus,
 }
 
 /// Work-order entry: records an asset in the system for repair / maintenance.
@@ -102,4 +102,6 @@ pub struct Entry {
     pub status: String,
     pub issued_parts: Vec<IssuedPart>,
     pub notes: String,
+    pub div: Option<String>,          // set for Out Station Repair entries
+    pub entered_by: Option<String>,   // name of the user who created the entry
 }

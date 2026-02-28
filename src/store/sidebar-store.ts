@@ -12,6 +12,6 @@ export const useSidebarStore = create<SidebarStore>()(
       collapsed: false,
       toggle: () => set((state) => ({ collapsed: !state.collapsed })),
     }),
-    { name: "sidebar-state" }
-  )
+    { name: "sidebar-state" },
+  ),
 );

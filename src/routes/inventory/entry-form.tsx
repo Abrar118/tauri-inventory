@@ -58,7 +58,7 @@ function AutocompleteInput({
 
   const filtered = value
     ? suggestions.filter(
-        (s) => s.toLowerCase().includes(value.toLowerCase()) && s !== value
+        (s) => s.toLowerCase().includes(value.toLowerCase()) && s !== value,
       )
     : suggestions;
 
@@ -140,8 +140,12 @@ export default function EntryForm() {
     setForm((prev) => ({ ...prev, [field]: value }));
 
   useEffect(() => {
-    getAssets().then(setAssets).catch(() => {});
-    getItems().then(setItems).catch(() => {});
+    getAssets()
+      .then(setAssets)
+      .catch(() => {});
+    getItems()
+      .then(setItems)
+      .catch(() => {});
   }, []);
 
   // Only active catalog assets can be used for entries
@@ -169,7 +173,7 @@ export default function EntryForm() {
         : categoryPool
       )
         .map((a) => a.catalog_type)
-        .filter(Boolean)
+        .filter(Boolean),
     ),
   ];
 
@@ -180,10 +184,10 @@ export default function EntryForm() {
         .filter(
           (a) =>
             (!form.asset_unit || a.unit === form.asset_unit) &&
-            (!form.asset_type || a.catalog_type === form.asset_type)
+            (!form.asset_type || a.catalog_type === form.asset_type),
         )
         .map((a) => a.name)
-        .filter(Boolean)
+        .filter(Boolean),
     ),
   ];
 
@@ -193,7 +197,7 @@ export default function EntryForm() {
     name: string,
     type: string,
     unit: string,
-    category: string
+    category: string,
   ): string[] => {
     return activeAssets
       .filter(
@@ -201,7 +205,7 @@ export default function EntryForm() {
           a.category === category &&
           a.name === name &&
           a.catalog_type === type &&
-          (!unit || a.unit === unit)
+          (!unit || a.unit === unit),
       )
       .map((a) => a.catalog_no)
       .filter(Boolean);
@@ -240,7 +244,7 @@ export default function EntryForm() {
       value,
       form.asset_type,
       form.asset_unit,
-      form.asset_category
+      form.asset_category,
     );
     setMatchingNos(matches);
     const autoNo = matches.length === 1 ? matches[0] : "";
@@ -256,7 +260,7 @@ export default function EntryForm() {
       const existing = prev.find((p) => p.item_no === item_no);
       if (existing) {
         return prev.map((p) =>
-          p.item_no === item_no ? { ...p, quantity: p.quantity + partQty } : p
+          p.item_no === item_no ? { ...p, quantity: p.quantity + partQty } : p,
         );
       }
       return [...prev, { item_no, quantity: partQty }];
@@ -295,7 +299,7 @@ export default function EntryForm() {
               quantity: Math.max(0, item.quantity - p.quantity),
             });
           }
-        })
+        }),
       );
       goeyToast.success("Entry created", {
         description: `${form.asset_name} (${form.asset_no}) is now In Progress`,
@@ -306,7 +310,7 @@ export default function EntryForm() {
           return issued
             ? { ...i, quantity: Math.max(0, i.quantity - issued.quantity) }
             : i;
-        })
+        }),
       );
       setForm(EMPTY_FORM);
       setMatchingNos([]);
@@ -321,9 +325,7 @@ export default function EntryForm() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">
-          Asset Entry
-        </h2>
+        <h2 className="text-3xl font-bold tracking-tight">Asset Entry</h2>
         <p className="text-muted-foreground">
           Record an asset entering the system for repair or maintenance
         </p>
@@ -333,13 +335,13 @@ export default function EntryForm() {
         <CardHeader>
           <CardTitle>Entry Details</CardTitle>
           <CardDescription>
-            Select category, then fill unit, type and name — Catalog No. fills from the catalog
+            Select category, then fill unit, type and name — Catalog No. fills
+            from the catalog
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
               {/* Category */}
               <div className="space-y-2">
                 <Label>Category</Label>
@@ -353,7 +355,9 @@ export default function EntryForm() {
                   </SelectTrigger>
                   <SelectContent>
                     {CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -450,7 +454,6 @@ export default function EntryForm() {
                   />
                 )}
               </div>
-
             </div>
 
             {/* Issued Parts */}
@@ -479,14 +482,17 @@ export default function EntryForm() {
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
-              {partInput && (() => {
-                const found = activeItems.find((i) => i.item_no === partInput);
-                return found ? (
-                  <p className="text-xs text-muted-foreground">
-                    Available: {found.quantity}
-                  </p>
-                ) : null;
-              })()}
+              {partInput &&
+                (() => {
+                  const found = activeItems.find(
+                    (i) => i.item_no === partInput,
+                  );
+                  return found ? (
+                    <p className="text-xs text-muted-foreground">
+                      Available: {found.quantity}
+                    </p>
+                  ) : null;
+                })()}
               {issuedParts.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {issuedParts.map((part) => (

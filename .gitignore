@@ -2,3 +2,5 @@
 src-tauri/target
 firebase-config.json
 firebase-web-config.ts
+node_modules
+dist/**
