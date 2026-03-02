@@ -22,14 +22,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { X, Plus } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { addEntry } from "@/services/entries";
 import { getAssets } from "@/services/catalog";
-import { getItems, updateItem } from "@/services/items";
-import type { Asset, Item, IssuedPart } from "@/types";
+import type { Asset } from "@/types";
 import { useAuth } from "@/context/auth-context";
 
 const CATEGORIES = ["Vehicle", "Gun", "Equipment", "Weapon"] as const;
@@ -130,11 +127,7 @@ export default function EntryForm() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [matchingNos, setMatchingNos] = useState<string[]>([]);
-  const [issuedParts, setIssuedParts] = useState<IssuedPart[]>([]);
-  const [partInput, setPartInput] = useState("");
-  const [partQty, setPartQty] = useState(1);
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
 
   const set = (field: keyof typeof EMPTY_FORM, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -143,15 +136,10 @@ export default function EntryForm() {
     getAssets()
       .then(setAssets)
       .catch(() => {});
-    getItems()
-      .then(setItems)
-      .catch(() => {});
   }, []);
 
   // Only active catalog assets can be used for entries
   const activeAssets = assets.filter((a) => a.status === "active");
-  // Only active items usable as issued parts
-  const activeItems = items.filter((i) => i.status === "active");
 
   // Assets in the selected category
   const categoryPool = form.asset_category
@@ -251,27 +239,6 @@ export default function EntryForm() {
     setForm((prev) => ({ ...prev, asset_name: value, asset_no: autoNo }));
   };
 
-  // ── Issued parts helpers ──────────────────────────────────────────────────
-
-  const addPart = () => {
-    const item_no = partInput.trim();
-    if (!item_no || partQty < 1) return;
-    setIssuedParts((prev) => {
-      const existing = prev.find((p) => p.item_no === item_no);
-      if (existing) {
-        return prev.map((p) =>
-          p.item_no === item_no ? { ...p, quantity: p.quantity + partQty } : p,
-        );
-      }
-      return [...prev, { item_no, quantity: partQty }];
-    });
-    setPartInput("");
-    setPartQty(1);
-  };
-
-  const removePart = (item_no: string) =>
-    setIssuedParts((prev) => prev.filter((p) => p.item_no !== item_no));
-
   // ── Submit ────────────────────────────────────────────────────────────────
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -287,34 +254,15 @@ export default function EntryForm() {
         entry_time: new Date().toISOString(),
         out_time: null,
         status: "In Progress",
-        issued_parts: issuedParts,
+        issued_parts: [],
         notes: form.notes,
         entered_by: profile?.name ?? "",
       });
-      await Promise.all(
-        issuedParts.map(async (p) => {
-          const item = items.find((i) => i.item_no === p.item_no);
-          if (item?.id) {
-            await updateItem(item.id, {
-              quantity: Math.max(0, item.quantity - p.quantity),
-            });
-          }
-        }),
-      );
       goeyToast.success("Entry created", {
         description: `${form.asset_name} (${form.asset_no}) is now In Progress`,
       });
-      setItems((prev) =>
-        prev.map((i) => {
-          const issued = issuedParts.find((p) => p.item_no === i.item_no);
-          return issued
-            ? { ...i, quantity: Math.max(0, i.quantity - issued.quantity) }
-            : i;
-        }),
-      );
       setForm(EMPTY_FORM);
       setMatchingNos([]);
-      setIssuedParts([]);
     } catch (err) {
       toastError("Failed to create entry", err);
     } finally {
@@ -456,65 +404,6 @@ export default function EntryForm() {
               </div>
             </div>
 
-            {/* Issued Parts */}
-            <div className="space-y-2">
-              <Label>Issued Parts</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter card no."
-                  value={partInput}
-                  onChange={(e) => setPartInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addPart();
-                    }
-                  }}
-                />
-                <Input
-                  type="number"
-                  min={1}
-                  className="w-24"
-                  value={partQty}
-                  onChange={(e) => setPartQty(Number(e.target.value))}
-                />
-                <Button type="button" variant="outline" onClick={addPart}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              {partInput &&
-                (() => {
-                  const found = activeItems.find(
-                    (i) => i.item_no === partInput,
-                  );
-                  return found ? (
-                    <p className="text-xs text-muted-foreground">
-                      Available: {found.quantity}
-                    </p>
-                  ) : null;
-                })()}
-              {issuedParts.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {issuedParts.map((part) => (
-                    <Badge
-                      key={part.item_no}
-                      variant="secondary"
-                      className="flex items-center gap-1"
-                    >
-                      {part.item_no} ×{part.quantity}
-                      <button
-                        type="button"
-                        onClick={() => removePart(part.item_no)}
-                        className="ml-1 rounded-full hover:text-destructive"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Notes */}
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
@@ -534,7 +423,6 @@ export default function EntryForm() {
               onClick={() => {
                 setForm(EMPTY_FORM);
                 setMatchingNos([]);
-                setIssuedParts([]);
               }}
             >
               Cancel
