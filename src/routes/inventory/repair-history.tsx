@@ -28,21 +28,21 @@ import {
 import { Calendar, Clock, Filter, Search, Truck } from "lucide-react";
 import { toastError } from "@/lib/toast";
 import { getRepairs } from "@/services/repairs";
-import { getAssets } from "@/services/catalog";
-import type { Repair, Asset } from "@/types";
+import { getLoads } from "@/services/loads";
+import type { Repair, Load } from "@/types";
 
 export default function RepairHistory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [repairs, setRepairs] = useState<Repair[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const [assets, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getRepairs(), getAssets()])
+    Promise.all([getRepairs(), getLoads()])
       .then(([r, a]) => {
         setRepairs(r);
-        setAssets(a);
+        setLoads(a);
       })
       .catch((err) => toastError("Failed to load repair history", err))
       .finally(() => setLoading(false));
@@ -59,7 +59,7 @@ export default function RepairHistory() {
     return matchesSearch && matchesStatus;
   });
 
-  const getAssetType = (catalogNo: string) => {
+  const getLoadType = (catalogNo: string) => {
     const asset = assets.find((a) => a.catalog_no === catalogNo);
     return asset ? asset.catalog_type : "Unknown";
   };
@@ -163,7 +163,7 @@ export default function RepairHistory() {
                   <TableCell className="font-medium">
                     {repair.vehicle_no}
                   </TableCell>
-                  <TableCell>{getAssetType(repair.vehicle_no)}</TableCell>
+                  <TableCell>{getLoadType(repair.vehicle_no)}</TableCell>
                   <TableCell>
                     <div className="flex items-center">
                       <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />

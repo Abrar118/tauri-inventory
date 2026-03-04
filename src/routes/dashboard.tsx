@@ -36,16 +36,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Car, Package, LogIn, LogOut, Plus, X } from "lucide-react";
+import { Car, Package, LogIn, LogOut, Plus, Minus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
-import { getAssets } from "@/services/catalog";
+import { getLoads } from "@/services/loads";
 import { getItems } from "@/services/items";
 import { getEntries, updateEntry } from "@/services/entries";
 import { updateItem } from "@/services/items";
-import type { Entry, Item, Asset } from "@/types";
-
+import type { Entry, Item, Load } from "@/types";
 // ── AutocompleteInput ─────────────────────────────────────────────────────────
 
 interface AutocompleteInputProps {
@@ -153,7 +152,7 @@ type PendingPart = { type: string; name: string; item_no: string; quantity: numb
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loads, setLoads] = useState<Load[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -171,9 +170,9 @@ export default function Dashboard() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    Promise.all([getAssets(), getItems(), getEntries()])
-      .then(([assts, itms, ents]) => {
-        setAssets(assts);
+    Promise.all([getLoads(), getItems(), getEntries()])
+      .then(([ldss, itms, ents]) => {
+        setLoads(ldss);
         setItems(itms);
         setEntries(ents);
       })
@@ -198,7 +197,7 @@ export default function Dashboard() {
   const wip = entries.filter((e) => e.out_time === null);
 
   const getEntryBlrBer = (entry: Entry): { blr: boolean; ber: boolean } => {
-    const a = assets.find((a) => a.catalog_no === entry.asset_no);
+    const a = loads.find((l) => l.catalog_no === entry.asset_no);
     return { blr: a?.blr ?? false, ber: a?.ber ?? false };
   };
 
@@ -327,6 +326,71 @@ export default function Dashboard() {
   const removePendingPart = (item_no: string) =>
     setPendingParts((prev) => prev.filter((p) => p.item_no !== item_no));
 
+  // ── Mutate already-issued parts ───────────────────────────────────────────
+
+  const handleIncreaseIssuedPart = async (item_no: string) => {
+    if (!dialogEntry?.id) return;
+    const part = dialogEntry.issued_parts.find((p) => p.item_no === item_no);
+    if (!part) return;
+    const item = items.find((i) => i.item_no === item_no);
+    if (!item?.id) return;
+    if (item.quantity <= 0) {
+      goeyToast.error("No stock available", { description: `${item.name} is out of stock` });
+      return;
+    }
+    const newParts = dialogEntry.issued_parts.map((p) =>
+      p.item_no === item_no ? { ...p, quantity: p.quantity + 1 } : p,
+    );
+    try {
+      await updateEntry(dialogEntry.id, { issued_parts: newParts });
+      await updateItem(item.id, { quantity: Math.max(0, item.quantity - 1) });
+      setDialogEntry((prev) => prev ? { ...prev, issued_parts: newParts } : prev);
+      setEntries((prev) => prev.map((e) => e.id === dialogEntry.id ? { ...e, issued_parts: newParts } : e));
+      setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, quantity: Math.max(0, i.quantity - 1) } : i));
+    } catch (err) {
+      toastError("Failed to update part", err);
+    }
+  };
+
+  const handleDecreaseIssuedPart = async (item_no: string) => {
+    if (!dialogEntry?.id) return;
+    const part = dialogEntry.issued_parts.find((p) => p.item_no === item_no);
+    if (!part) return;
+    const item = items.find((i) => i.item_no === item_no);
+    if (!item?.id) return;
+    const newQty = part.quantity - 1;
+    const newParts = newQty <= 0
+      ? dialogEntry.issued_parts.filter((p) => p.item_no !== item_no)
+      : dialogEntry.issued_parts.map((p) => p.item_no === item_no ? { ...p, quantity: newQty } : p);
+    try {
+      await updateEntry(dialogEntry.id, { issued_parts: newParts });
+      await updateItem(item.id, { quantity: item.quantity + 1 });
+      setDialogEntry((prev) => prev ? { ...prev, issued_parts: newParts } : prev);
+      setEntries((prev) => prev.map((e) => e.id === dialogEntry.id ? { ...e, issued_parts: newParts } : e));
+      setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i));
+    } catch (err) {
+      toastError("Failed to update part", err);
+    }
+  };
+
+  const handleRemoveIssuedPart = async (item_no: string) => {
+    if (!dialogEntry?.id) return;
+    const part = dialogEntry.issued_parts.find((p) => p.item_no === item_no);
+    if (!part) return;
+    const item = items.find((i) => i.item_no === item_no);
+    if (!item?.id) return;
+    const newParts = dialogEntry.issued_parts.filter((p) => p.item_no !== item_no);
+    try {
+      await updateEntry(dialogEntry.id, { issued_parts: newParts });
+      await updateItem(item.id, { quantity: item.quantity + part.quantity });
+      setDialogEntry((prev) => prev ? { ...prev, issued_parts: newParts } : prev);
+      setEntries((prev) => prev.map((e) => e.id === dialogEntry.id ? { ...e, issued_parts: newParts } : e));
+      setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, quantity: i.quantity + part.quantity } : i));
+    } catch (err) {
+      toastError("Failed to remove part", err);
+    }
+  };
+
   // ── Submit: issue parts ───────────────────────────────────────────────────
 
   const handleIssueParts = async () => {
@@ -438,8 +502,8 @@ export default function Dashboard() {
       {/* ── Stat cards ───────────────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
-          title="Total Assets"
-          value={assets.length}
+          title="Total Loads"
+          value={loads.length}
           icon={Car}
           colorClass="bg-chart-2/10"
           iconColorClass="text-chart-2"
@@ -588,7 +652,7 @@ export default function Dashboard() {
         open={!!dialogEntry}
         onOpenChange={(open) => !open && closeDialog()}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>
               {dialogEntry?.asset_no} — {dialogEntry?.asset_name}
@@ -629,39 +693,13 @@ export default function Dashboard() {
 
           {/* ── Issue Parts mode ── */}
           {dialogMode === "issue" && (
-            <div className="space-y-4">
-              {/* Already issued */}
-              {dialogEntry && dialogEntry.issued_parts.length > 0 && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">
-                    Already issued
-                  </Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {dialogEntry.issued_parts.map((p) => {
-                      const found = items.find((i) => i.item_no === p.item_no);
-                      return (
-                        <Badge
-                          key={p.item_no}
-                          variant="secondary"
-                          className="text-xs font-mono"
-                        >
-                          {p.item_no} ×{p.quantity}
-                          {found ? ` — ${found.name}` : ""}
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Part entry row */}
-              <div className="space-y-2">
-                <Label>Add Part</Label>
-                <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-4">
+              {/* Left: add part form */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Add Part</Label>
+                <div className="space-y-2">
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Type
-                    </Label>
+                    <Label className="text-xs text-muted-foreground">Type</Label>
                     <AutocompleteInput
                       value={partType}
                       onChange={handleTypeChange}
@@ -670,9 +708,7 @@ export default function Dashboard() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Name
-                    </Label>
+                    <Label className="text-xs text-muted-foreground">Name</Label>
                     <AutocompleteInput
                       value={partName}
                       onChange={setPartName}
@@ -680,98 +716,165 @@ export default function Dashboard() {
                       placeholder="e.g. Oil Filter"
                     />
                   </div>
-                </div>
-
-                {/* Item No. */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    Item No.
-                  </Label>
-                  {matchingItemNos.length > 1 ? (
-                    <Select value={partItemNo} onValueChange={setPartItemNo}>
-                      <SelectTrigger className="font-mono">
-                        <SelectValue placeholder="Select item no." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {matchingItemNos.map((no) => (
-                          <SelectItem key={no} value={no} className="font-mono">
-                            {no}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span
-                      className={cn(
-                        "flex h-9 w-full items-center rounded-md border bg-muted/50 px-3 text-sm font-mono",
-                        partItemNo ? "text-foreground" : "text-muted-foreground"
-                      )}
-                    >
-                      {partItemNo || "—"}
-                    </span>
-                  )}
-                </div>
-
-                {/* Quantity + Add */}
-                <div className="flex gap-2 items-end">
-                  <div className="space-y-1 flex-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Quantity
-                      {partItemNo && (() => {
-                        const avail = activeItems.find((i) => i.item_no === partItemNo)?.quantity;
-                        return avail !== undefined ? ` (available: ${avail})` : "";
-                      })()}
-                    </Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={partQuantity}
-                      onChange={(e) => setPartQuantity(Math.max(1, Number(e.target.value)))}
-                      className="w-24"
-                    />
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Item No.</Label>
+                    {matchingItemNos.length > 1 ? (
+                      <Select value={partItemNo} onValueChange={setPartItemNo}>
+                        <SelectTrigger className="font-mono">
+                          <SelectValue placeholder="Select item no." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {matchingItemNos.map((no) => (
+                            <SelectItem key={no} value={no} className="font-mono">
+                              {no}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span
+                        className={cn(
+                          "flex h-9 w-full items-center rounded-md border bg-muted/50 px-3 text-sm font-mono",
+                          partItemNo ? "text-foreground" : "text-muted-foreground",
+                        )}
+                      >
+                        {partItemNo || "—"}
+                      </span>
+                    )}
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addPendingPart}
-                    disabled={!partItemNo}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add
-                  </Button>
+                  <div className="flex gap-2 items-end">
+                    <div className="space-y-1 flex-1">
+                      <Label className="text-xs text-muted-foreground">
+                        Qty
+                        {partItemNo &&
+                          (() => {
+                            const avail = activeItems.find((i) => i.item_no === partItemNo)?.quantity;
+                            return avail !== undefined ? ` (avail: ${avail})` : "";
+                          })()}
+                      </Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={partQuantity}
+                        onChange={(e) => setPartQuantity(Math.max(1, Number(e.target.value)))}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addPendingPart}
+                      disabled={!partItemNo}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add
+                    </Button>
+                  </div>
                 </div>
+
+                {/* Pending parts */}
+                {pendingParts.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">To be issued</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {pendingParts.map((p) => (
+                        <Badge
+                          key={p.item_no}
+                          variant="outline"
+                          className="flex items-center gap-1 text-xs"
+                        >
+                          <span className="font-mono">{p.item_no}</span>
+                          {" ×"}{p.quantity} — {p.name}
+                          <button
+                            type="button"
+                            onClick={() => removePendingPart(p.item_no)}
+                            className="ml-1 rounded-full hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Pending parts to be issued */}
-              {pendingParts.length > 0 && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">
-                    To be issued
-                  </Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {pendingParts.map((p) => (
-                      <Badge
-                        key={p.item_no}
-                        variant="outline"
-                        className="flex items-center gap-1 text-xs"
-                      >
-                        <span className="font-mono">{p.item_no}</span>
-                        {" ×"}{p.quantity}
-                        {" — "}
-                        {p.name}
-                        <button
-                          type="button"
-                          onClick={() => removePendingPart(p.item_no)}
-                          className="ml-1 rounded-full hover:text-destructive"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
+              {/* Right: issued parts table */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Issued Parts
+                  {dialogEntry && dialogEntry.issued_parts.length > 0 && (
+                    <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                      ({dialogEntry.issued_parts.length})
+                    </span>
+                  )}
+                </Label>
+                {!dialogEntry || dialogEntry.issued_parts.length === 0 ? (
+                  <div className="flex h-32 items-center justify-center rounded-md border border-dashed">
+                    <p className="text-xs text-muted-foreground">No parts issued yet</p>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Item No.</TableHead>
+                          <TableHead className="text-xs">Name</TableHead>
+                          <TableHead className="text-xs text-center">Issued</TableHead>
+                          <TableHead className="text-xs text-center">Available</TableHead>
+                          <TableHead className="text-xs" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {dialogEntry.issued_parts.map((p) => {
+                          const found = items.find((i) => i.item_no === p.item_no);
+                          return (
+                            <TableRow key={p.item_no}>
+                              <TableCell className="font-mono text-xs py-2">{p.item_no}</TableCell>
+                              <TableCell className="text-xs py-2">{found?.name ?? "—"}</TableCell>
+                              <TableCell className="text-center text-xs py-2">{p.quantity}</TableCell>
+                              <TableCell className="text-center text-xs py-2">
+                                <span className={cn(found?.quantity === 0 ? "text-destructive font-medium" : "")}>
+                                  {found?.quantity ?? 0}
+                                </span>
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <div className="flex items-center gap-1 justify-end">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6"
+                                    onClick={() => handleDecreaseIssuedPart(p.item_no)}
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6"
+                                    disabled={(found?.quantity ?? 0) <= 0}
+                                    onClick={() => handleIncreaseIssuedPart(p.item_no)}
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6 hover:text-destructive"
+                                    onClick={() => handleRemoveIssuedPart(p.item_no)}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

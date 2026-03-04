@@ -25,8 +25,8 @@ import {
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { addEntry } from "@/services/entries";
-import { getAssets } from "@/services/catalog";
-import type { Asset } from "@/types";
+import { getLoads } from "@/services/loads";
+import type { Load } from "@/types";
 import { useAuth } from "@/context/auth-context";
 
 const CATEGORIES = ["Vehicle", "Gun", "Equipment", "Weapon"] as const;
@@ -127,23 +127,23 @@ export default function EntryForm() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [matchingNos, setMatchingNos] = useState<string[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loads, setLoads] = useState<Load[]>([]);
 
   const set = (field: keyof typeof EMPTY_FORM, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
   useEffect(() => {
-    getAssets()
-      .then(setAssets)
+    getLoads()
+      .then(setLoads)
       .catch(() => {});
   }, []);
 
-  // Only active catalog assets can be used for entries
-  const activeAssets = assets.filter((a) => a.status === "active");
+  // Only active loads can be used for entries
+  const activeLoads = loads.filter((l) => l.status === "active");
 
-  // Assets in the selected category
+  // Loads in the selected category
   const categoryPool = form.asset_category
-    ? activeAssets.filter((a) => a.category === form.asset_category)
+    ? activeLoads.filter((a) => a.category === form.asset_category)
     : [];
 
   // ── Cascading suggestions ─────────────────────────────────────────────────
@@ -187,7 +187,7 @@ export default function EntryForm() {
     unit: string,
     category: string,
   ): string[] => {
-    return activeAssets
+    return activeLoads
       .filter(
         (a) =>
           a.category === category &&
@@ -273,7 +273,7 @@ export default function EntryForm() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Asset Entry</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Load Entry</h2>
         <p className="text-muted-foreground">
           Record an asset entering the system for repair or maintenance
         </p>

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -30,6 +31,8 @@ const EMPTY_FORM = {
   rack_no: "",
   returnable: false,
   description: "",
+  is_unservicable: false,
+  is_lost: false,
 };
 
 export default function ItemEntry() {
@@ -43,16 +46,19 @@ export default function ItemEntry() {
     e.preventDefault();
     setLoading(true);
     try {
+      const qty = Number(form.quantity);
       await addItem({
         item_no: form.item_no,
         name: form.name,
         type: form.type,
-        quantity: Number(form.quantity),
+        quantity: form.is_unservicable || form.is_lost ? 0 : qty,
         vehicle_type: form.vehicle_type || null,
         rack_no: form.rack_no,
         returnable: form.returnable,
         description: form.description,
         image: null,
+        unservicable_count: form.is_unservicable ? qty : 0,
+        lost_count: form.is_lost ? qty : 0,
       });
       goeyToast.success("Item added successfully", {
         description: "The item has been added to inventory",
@@ -122,6 +128,44 @@ export default function ItemEntry() {
                   required
                 />
               </div>
+              <div className="space-y-2 pt-2">
+                <Label className="text-sm font-medium">Condition</Label>
+                <div className="flex gap-6">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="is_unservicable"
+                      checked={form.is_unservicable}
+                      onCheckedChange={(v) => {
+                        set("is_unservicable", !!v);
+                        if (v) set("is_lost", false);
+                      }}
+                    />
+                    <Label htmlFor="is_unservicable" className="cursor-pointer">
+                      Unserviceable
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="is_lost"
+                      checked={form.is_lost}
+                      onCheckedChange={(v) => {
+                        set("is_lost", !!v);
+                        if (v) set("is_unservicable", false);
+                      }}
+                    />
+                    <Label htmlFor="is_lost" className="cursor-pointer">
+                      Lost
+                    </Label>
+                  </div>
+                </div>
+                {(form.is_unservicable || form.is_lost) && form.quantity && (
+                  <p className="text-xs text-muted-foreground">
+                    {form.quantity} item{Number(form.quantity) !== 1 ? "s" : ""} will be recorded as{" "}
+                    {form.is_unservicable ? "unserviceable" : "lost"} — available quantity will be 0
+                  </p>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="rack-no">Rack Number</Label>
                 <Input

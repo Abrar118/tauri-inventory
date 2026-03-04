@@ -21,20 +21,16 @@ import { useSidebarStore } from "@/store/sidebar-store";
 const navGroups = [
   [
     { name: "Dashboard", path: "/", icon: Home },
-    { name: "Asset Entry", path: "/inventory/entry", icon: FilePlus2 },
+    { name: "Load Entry", path: "/inventory/entry", icon: FilePlus2 },
     { name: "Out Station Repair", path: "/inventory/out-station-repair", icon: Wrench },
     { name: "Report", path: "/inventory/report", icon: BarChart2 },
   ],
   [
     { name: "Add Item", path: "/inventory/item-entry", icon: PackagePlus },
-    { name: "Add Asset", path: "/inventory/vehicle-entry", icon: Truck },
-    {
-      name: "Asset Catalog",
-      path: "/inventory/vehicle-list",
-      icon: ClipboardList,
-    },
+    { name: "Add Load", path: "/inventory/vehicle-entry", icon: Truck },
+    { name: "Loads", path: "/inventory/vehicle-list", icon: ClipboardList },
     { name: "Item List", path: "/inventory/item-list", icon: Package },
-    { name: "Lost Items", path: "/inventory/lost-items", icon: PackageX },
+    { name: "Unserviceable & Lost", path: "/inventory/lost-items", icon: PackageX },
     { name: "BLR / BER", path: "/inventory/blr-ber", icon: AlertTriangle },
   ],
   [

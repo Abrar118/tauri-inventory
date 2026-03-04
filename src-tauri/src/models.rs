@@ -21,6 +21,10 @@ pub struct Item {
     pub description: String,
     pub image: Option<String>,
     pub status: ApprovalStatus,
+    pub blr_count: u32,
+    pub ber_count: u32,
+    pub unservicable_count: u32,
+    pub lost_count: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -72,17 +76,18 @@ pub struct IssuedPart {
     pub quantity: u32,
 }
 
-/// Catalog asset — vehicle, gun, equipment, or weapon available for repair entries.
+/// Load — vehicle, gun, equipment, or weapon available for repair entries.
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Asset {
+pub struct Load {
     pub id: Option<String>,
     pub catalog_no: String,
     pub name: String,
     pub category: String,       // "Vehicle" | "Gun" | "Equipment" | "Weapon"
     pub catalog_type: String,   // specific type within category
     pub unit: String,
-    pub blr: bool,
-    pub ber: bool,
+    pub quantity: u32,
+    pub blr_count: u32,
+    pub ber_count: u32,
     pub description: String,
     pub image: Option<String>,
     pub status: ApprovalStatus,

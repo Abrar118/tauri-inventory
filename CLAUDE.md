@@ -24,7 +24,7 @@ This is a **military inventory management** desktop application built with **Tau
 ### Stack
 - **Frontend**: React 18, TypeScript, React Router v7 (`createBrowserRouter`)
 - **Styling**: Tailwind CSS v4, shadcn/ui (Radix UI primitives), `cn()` utility (`src/lib/utils.ts`)
-- **Notifications**: `sonner` toasts
+- **Notifications**: `goey-tost` toasts
 - **Theming**: `next-themes` (light/dark/system via `ThemeProvider`)
 - **Desktop shell**: Tauri 2 (Rust backend at `src-tauri/src/lib.rs`)
 

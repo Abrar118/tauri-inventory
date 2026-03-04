@@ -24,14 +24,14 @@ import { Download, Printer, Search, X } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { getItems } from "@/services/items";
-import { getAssets } from "@/services/catalog";
-import type { Item, Asset } from "@/types";
+import { getLoads } from "@/services/loads";
+import type { Item, Load } from "@/types";
 
-type SelectedAsset =
+type SelectedLoad =
   | { kind: "item"; data: Item }
-  | { kind: "catalog"; data: Asset };
+  | { kind: "catalog"; data: Load };
 
-function assetKey(asset: SelectedAsset): string {
+function assetKey(asset: SelectedLoad): string {
   return asset.kind === "item"
     ? `item-${asset.data.item_no}`
     : `catalog-${asset.data.catalog_no}`;
@@ -39,7 +39,7 @@ function assetKey(asset: SelectedAsset): string {
 
 // The value encoded into the barcode. Prefix makes catalog vs item distinguishable
 // by any scanner: ITM-{item_no} or CAT-{catalog_no}.
-function assetValue(asset: SelectedAsset): string {
+function assetValue(asset: SelectedLoad): string {
   return asset.kind === "item"
     ? `ITM-${asset.data.item_no}`
     : `CAT-${asset.data.catalog_no}`;
@@ -49,8 +49,8 @@ export default function BarcodeCreation() {
   const [itemSearch, setItemSearch] = useState("");
   const [catalogSearch, setCatalogSearch] = useState("");
   const [items, setItems] = useState<Item[]>([]);
-  const [catalogAssets, setCatalogAssets] = useState<Asset[]>([]);
-  const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
+  const [catalogLoads, setCatalogLoads] = useState<Load[]>([]);
+  const [selectedLoads, setSelectedLoads] = useState<SelectedLoad[]>([]);
   const [barcodeType, setBarcodeType] = useState("code128");
   // key → base64 PNG returned from Rust
   const [previews, setPreviews] = useState<Map<string, string>>(new Map());
@@ -62,14 +62,14 @@ export default function BarcodeCreation() {
     getItems()
       .then(setItems)
       .catch((err) => toastError("Failed to load items", err));
-    getAssets()
-      .then(setCatalogAssets)
+    getLoads()
+      .then(setCatalogLoads)
       .catch((err) => toastError("Failed to load catalog", err));
   }, []);
 
   // Re-generate previews whenever selection or barcode type changes
   useEffect(() => {
-    if (selectedAssets.length === 0) {
+    if (selectedLoads.length === 0) {
       setPreviews(new Map());
       setGenerating(false);
       return;
@@ -79,7 +79,7 @@ export default function BarcodeCreation() {
     setGenerating(true);
 
     Promise.all(
-      selectedAssets.map(async (asset) => {
+      selectedLoads.map(async (asset) => {
         const key = assetKey(asset);
         const value = assetValue(asset);
         try {
@@ -102,7 +102,7 @@ export default function BarcodeCreation() {
       setPreviews(map);
       setGenerating(false);
     });
-  }, [selectedAssets, barcodeType]);
+  }, [selectedLoads, barcodeType]);
 
   const filteredItems = items.filter(
     (item) =>
@@ -110,21 +110,21 @@ export default function BarcodeCreation() {
       item.item_no.toLowerCase().includes(itemSearch.toLowerCase())
   );
 
-  const filteredCatalog = catalogAssets.filter(
+  const filteredCatalog = catalogLoads.filter(
     (a) =>
       a.name.toLowerCase().includes(catalogSearch.toLowerCase()) ||
       a.catalog_no.toLowerCase().includes(catalogSearch.toLowerCase())
   );
 
-  const handleAdd = (asset: SelectedAsset) => {
+  const handleAdd = (asset: SelectedLoad) => {
     const key = assetKey(asset);
-    if (!selectedAssets.find((a) => assetKey(a) === key)) {
-      setSelectedAssets((prev) => [...prev, asset]);
+    if (!selectedLoads.find((a) => assetKey(a) === key)) {
+      setSelectedLoads((prev) => [...prev, asset]);
     }
   };
 
   const handleRemove = (key: string) => {
-    setSelectedAssets((prev) => prev.filter((a) => assetKey(a) !== key));
+    setSelectedLoads((prev) => prev.filter((a) => assetKey(a) !== key));
     setPreviews((prev) => {
       const next = new Map(prev);
       next.delete(key);
@@ -133,7 +133,7 @@ export default function BarcodeCreation() {
   };
 
   const handleDownload = async () => {
-    const ready = selectedAssets.filter((a) => previews.has(assetKey(a)));
+    const ready = selectedLoads.filter((a) => previews.has(assetKey(a)));
     if (ready.length === 0) {
       goeyToast.error("No barcodes ready — wait for generation to finish");
       return;
@@ -159,7 +159,7 @@ export default function BarcodeCreation() {
   };
 
   const handlePrint = async () => {
-    const cells = selectedAssets
+    const cells = selectedLoads
       .map((asset) => {
         const base64 = previews.get(assetKey(asset));
         const value = assetValue(asset);
@@ -202,7 +202,7 @@ export default function BarcodeCreation() {
     }
   };
 
-  const isReady = selectedAssets.length > 0 && !generating && previews.size > 0;
+  const isReady = selectedLoads.length > 0 && !generating && previews.size > 0;
 
   return (
     <div className="space-y-6">
@@ -217,7 +217,7 @@ export default function BarcodeCreation() {
         {/* Left panel: asset selection */}
         <Card>
           <CardHeader>
-            <CardTitle>Select Assets</CardTitle>
+            <CardTitle>Select Loads</CardTitle>
             <CardDescription>
               Choose items or vehicles to generate barcodes for
             </CardDescription>
@@ -343,7 +343,7 @@ export default function BarcodeCreation() {
             {/* Selected assets with inline barcode preview */}
             <div className="space-y-2">
               <Label>
-                Selected ({selectedAssets.length}){" "}
+                Selected ({selectedLoads.length}){" "}
                 {generating && (
                   <span className="text-xs text-muted-foreground font-normal">
                     — generating…
@@ -351,7 +351,7 @@ export default function BarcodeCreation() {
                 )}
               </Label>
 
-              {selectedAssets.length === 0 ? (
+              {selectedLoads.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-6 text-center">
                   <p className="text-sm text-muted-foreground">
                     No assets selected
@@ -362,7 +362,7 @@ export default function BarcodeCreation() {
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[320px] overflow-y-auto pr-0.5">
-                  {selectedAssets.map((asset) => {
+                  {selectedLoads.map((asset) => {
                     const key = assetKey(asset);
                     const base64 = previews.get(key);
                     const value = assetValue(asset);
@@ -384,7 +384,7 @@ export default function BarcodeCreation() {
                           )}
                         </div>
 
-                        {/* Asset info */}
+                        {/* Load info */}
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">
                             {asset.data.name}

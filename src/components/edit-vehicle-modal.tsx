@@ -23,16 +23,16 @@ import {
 } from "@/components/ui/select";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
-import { updateAsset } from "@/services/catalog";
-import type { Asset } from "@/types";
+import { updateLoad } from "@/services/loads";
+import type { Load } from "@/types";
 
 const CATEGORIES = ["Vehicle", "Gun", "Equipment", "Weapon"] as const;
 
 interface EditVehicleModalProps {
-  vehicle: Asset;
+  vehicle: Load;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpdated: (updated: Asset) => void;
+  onUpdated: (updated: Load) => void;
 }
 
 export function EditVehicleModal({
@@ -60,9 +60,9 @@ export function EditVehicleModal({
     setLoading(true);
     try {
       const updates = { ...form, status: "pending" as const };
-      await updateAsset(vehicle.id, updates);
-      goeyToast.success("Asset updated", {
-        description: "Asset is now pending re-approval",
+      await updateLoad(vehicle.id, updates);
+      goeyToast.success("Load updated", {
+        description: "Load is now pending re-approval",
       });
       onUpdated({ ...vehicle, ...updates });
       onOpenChange(false);
@@ -82,7 +82,7 @@ export function EditVehicleModal({
     >
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Edit Asset</DialogTitle>
+          <DialogTitle>Edit Load</DialogTitle>
           <DialogDescription>
             Changes will require re-approval.
           </DialogDescription>

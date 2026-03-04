@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -38,15 +39,24 @@ import {
   Search,
   Trash,
   XCircle,
+  AlertTriangle,
+  PackageX,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
-import { getItems, deleteItem, approveItem, rejectItem } from "@/services/items";
+import { getItems, deleteItem, approveItem, rejectItem, updateItem } from "@/services/items";
 import { useAuth } from "@/context/auth-context";
 import { EditItemModal } from "@/components/edit-item-modal";
 import type { Item } from "@/types";
 
-const APPROVER_ROLES = ["OC", "WORKSHOP_OFFICER"];
+const APPROVER_ROLES = ["ADMIN", "OC", "WORKSHOP_OFFICER"];
 
 export default function ItemList() {
   const navigate = useNavigate();
@@ -58,6 +68,13 @@ export default function ItemList() {
   const [editItem, setEditItem] = useState<Item | null>(null);
   const canApprove = accountType !== null && APPROVER_ROLES.includes(accountType);
 
+  // Mark modal state
+  const [markMode, setMarkMode] = useState<"unservicable" | "lost" | null>(null);
+  const [markSearch, setMarkSearch] = useState("");
+  const [markSelectedItem, setMarkSelectedItem] = useState<Item | null>(null);
+  const [markCount, setMarkCount] = useState(1);
+  const [markSubmitting, setMarkSubmitting] = useState(false);
+
   useEffect(() => {
     getItems()
       .then(setItems)
@@ -67,10 +84,8 @@ export default function ItemList() {
 
   const filteredItems = items.filter(
     (item) =>
-      !item.blr &&
-      !item.ber &&
-      ((item.name ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.type ?? "").toLowerCase().includes(searchTerm.toLowerCase()))
+      (item.name ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.type ?? "").toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   // ── Selection ──────────────────────────────────────────────────────────────
@@ -182,6 +197,98 @@ export default function ItemList() {
     }
   };
 
+  // ── Mark BLR / BER modal ───────────────────────────────────────────────────
+
+  const [blrBerMode, setBlrBerMode] = useState<"blr" | "ber" | null>(null);
+  const [blrBerSearch, setBlrBerSearch] = useState("");
+  const [blrBerSelected, setBlrBerSelected] = useState<Item | null>(null);
+  const [blrBerCount, setBlrBerCount] = useState(1);
+  const [blrBerSubmitting, setBlrBerSubmitting] = useState(false);
+
+  const openBlrBerModal = (mode: "blr" | "ber") => {
+    setBlrBerMode(mode);
+    setBlrBerSearch("");
+    setBlrBerSelected(null);
+    setBlrBerCount(1);
+  };
+
+  const closeBlrBerModal = () => {
+    setBlrBerMode(null);
+    setBlrBerSelected(null);
+    setBlrBerSearch("");
+    setBlrBerCount(1);
+  };
+
+  const handleBlrBerSubmit = async () => {
+    if (!blrBerSelected?.id || !blrBerMode) return;
+    setBlrBerSubmitting(true);
+    try {
+      const newQty = blrBerSelected.quantity - blrBerCount;
+      const update =
+        blrBerMode === "blr"
+          ? { quantity: newQty, blr_count: blrBerSelected.blr_count + blrBerCount }
+          : { quantity: newQty, ber_count: blrBerSelected.ber_count + blrBerCount };
+      await updateItem(blrBerSelected.id, update);
+      setItems((prev) =>
+        prev.map((i) => (i.id === blrBerSelected.id ? { ...i, ...update } : i)),
+      );
+      goeyToast.success(
+        blrBerMode === "blr" ? "Marked as BLR" : "Marked as BER",
+        { description: `${blrBerCount} × ${blrBerSelected.name} updated` },
+      );
+      closeBlrBerModal();
+    } catch (err) {
+      toastError("Failed to update item", err);
+    } finally {
+      setBlrBerSubmitting(false);
+    }
+  };
+
+  const openMarkModal = (mode: "unservicable" | "lost") => {
+    setMarkMode(mode);
+    setMarkSearch("");
+    setMarkSelectedItem(null);
+    setMarkCount(1);
+  };
+
+  const closeMarkModal = () => {
+    setMarkMode(null);
+    setMarkSelectedItem(null);
+    setMarkSearch("");
+    setMarkCount(1);
+  };
+
+  const handleMarkSubmit = async () => {
+    if (!markSelectedItem?.id || !markMode) return;
+    setMarkSubmitting(true);
+    try {
+      const newQty = markSelectedItem.quantity - markCount;
+      const update =
+        markMode === "unservicable"
+          ? {
+              quantity: newQty,
+              unservicable_count: markSelectedItem.unservicable_count + markCount,
+            }
+          : {
+              quantity: newQty,
+              lost_count: markSelectedItem.lost_count + markCount,
+            };
+      await updateItem(markSelectedItem.id, update);
+      setItems((prev) =>
+        prev.map((i) => (i.id === markSelectedItem.id ? { ...i, ...update } : i)),
+      );
+      goeyToast.success(
+        markMode === "unservicable" ? "Marked as unserviceable" : "Marked as lost",
+        { description: `${markCount} × ${markSelectedItem.name} updated` },
+      );
+      closeMarkModal();
+    } catch (err) {
+      toastError("Failed to update item", err);
+    } finally {
+      setMarkSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -206,6 +313,22 @@ export default function ItemList() {
           <Button onClick={() => navigate("/inventory/item-entry")}>
             <Package className="mr-2 h-4 w-4" />
             Add Item
+          </Button>
+          <Button variant="outline" onClick={() => openMarkModal("unservicable")}>
+            <AlertTriangle className="mr-2 h-4 w-4 text-yellow-600" />
+            Mark Unserviceable
+          </Button>
+          <Button variant="outline" onClick={() => openMarkModal("lost")}>
+            <PackageX className="mr-2 h-4 w-4 text-destructive" />
+            Mark Lost
+          </Button>
+          <Button variant="outline" onClick={() => openBlrBerModal("blr")}>
+            <AlertTriangle className="mr-2 h-4 w-4 text-orange-600" />
+            Mark BLR
+          </Button>
+          <Button variant="outline" onClick={() => openBlrBerModal("ber")}>
+            <AlertTriangle className="mr-2 h-4 w-4 text-destructive" />
+            Mark BER
           </Button>
           <Button variant="outline">
             <Barcode className="mr-2 h-4 w-4" />
@@ -402,6 +525,212 @@ export default function ItemList() {
           }}
         />
       )}
+
+      {/* Mark BLR / BER modal */}
+      <Dialog open={!!blrBerMode} onOpenChange={(o) => !o && closeBlrBerModal()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {blrBerMode === "blr" ? "Mark BLR" : "Mark BER"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search items..."
+                className="pl-8"
+                value={blrBerSearch}
+                onChange={(e) => { setBlrBerSearch(e.target.value); setBlrBerSelected(null); }}
+              />
+            </div>
+            {!blrBerSelected && (
+              <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
+                {items
+                  .filter(
+                    (i) =>
+                      i.quantity > 0 &&
+                      i.status === "active" &&
+                      (i.name.toLowerCase().includes(blrBerSearch.toLowerCase()) ||
+                        i.item_no.toLowerCase().includes(blrBerSearch.toLowerCase())),
+                  )
+                  .map((i) => (
+                    <button
+                      key={i.id}
+                      type="button"
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-muted/50 transition-colors"
+                      onClick={() => { setBlrBerSelected(i); setBlrBerCount(1); }}
+                    >
+                      <div>
+                        <span className="font-medium">{i.name}</span>
+                        <span className="ml-2 font-mono text-xs text-muted-foreground">{i.item_no}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">Qty: {i.quantity}</span>
+                    </button>
+                  ))}
+              </div>
+            )}
+            {blrBerSelected && (
+              <div className="rounded-md border p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">{blrBerSelected.name}</p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {blrBerSelected.item_no} · Available: {blrBerSelected.quantity}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setBlrBerSelected(null)}>
+                    Change
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    How many are {blrBerMode === "blr" ? "Beyond Local Repair" : "Beyond Economic Repair"}?
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={blrBerSelected.quantity}
+                    value={blrBerCount}
+                    onChange={(e) =>
+                      setBlrBerCount(Math.min(Math.max(1, Number(e.target.value)), blrBerSelected.quantity))
+                    }
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeBlrBerModal}>Cancel</Button>
+            <Button
+              onClick={handleBlrBerSubmit}
+              disabled={!blrBerSelected || blrBerSubmitting}
+              variant={blrBerMode === "ber" ? "destructive" : "default"}
+            >
+              {blrBerSubmitting ? "Saving..." : blrBerMode === "blr" ? "Mark BLR" : "Mark BER"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark Unserviceable / Lost modal */}
+      <Dialog open={!!markMode} onOpenChange={(o) => !o && closeMarkModal()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {markMode === "unservicable" ? "Mark Unserviceable" : "Mark Lost"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search items..."
+                className="pl-8"
+                value={markSearch}
+                onChange={(e) => {
+                  setMarkSearch(e.target.value);
+                  setMarkSelectedItem(null);
+                }}
+              />
+            </div>
+
+            {/* Item list */}
+            {!markSelectedItem && (
+              <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
+                {items
+                  .filter(
+                    (i) =>
+                      i.quantity > 0 &&
+                      i.status === "active" &&
+                      (i.name.toLowerCase().includes(markSearch.toLowerCase()) ||
+                        i.item_no.toLowerCase().includes(markSearch.toLowerCase())),
+                  )
+                  .map((i) => (
+                    <button
+                      key={i.id}
+                      type="button"
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        setMarkSelectedItem(i);
+                        setMarkCount(1);
+                      }}
+                    >
+                      <div>
+                        <span className="font-medium">{i.name}</span>
+                        <span className="ml-2 font-mono text-xs text-muted-foreground">
+                          {i.item_no}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Qty: {i.quantity}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            )}
+
+            {/* Count input after selection */}
+            {markSelectedItem && (
+              <div className="rounded-md border p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">{markSelectedItem.name}</p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {markSelectedItem.item_no} · Available: {markSelectedItem.quantity}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setMarkSelectedItem(null)}
+                  >
+                    Change
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    How many are {markMode === "unservicable" ? "unserviceable" : "lost"}?
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={markSelectedItem.quantity}
+                    value={markCount}
+                    onChange={(e) =>
+                      setMarkCount(
+                        Math.min(
+                          Math.max(1, Number(e.target.value)),
+                          markSelectedItem.quantity,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeMarkModal}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleMarkSubmit}
+              disabled={!markSelectedItem || markSubmitting}
+              variant={markMode === "lost" ? "destructive" : "default"}
+            >
+              {markSubmitting
+                ? "Saving..."
+                : markMode === "unservicable"
+                ? "Mark Unserviceable"
+                : "Mark Lost"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -20,7 +20,6 @@ import VehicleEntry from "./routes/inventory/vehicle-entry";
 import VehicleList from "./routes/inventory/vehicle-list";
 import ItemList from "./routes/inventory/item-list";
 import LostItems from "./routes/inventory/lost-items";
-import ItemIssue from "./routes/inventory/item-issue";
 import RepairHistory from "./routes/inventory/repair-history";
 import BarcodeCreation from "./routes/inventory/barcode-creation";
 import BlrBer from "./routes/inventory/blr-ber";
@@ -66,7 +65,6 @@ const router = createBrowserRouter([
       { path: "inventory/barcode-creation", element: <BarcodeCreation /> },
       { path: "inventory/blr-ber", element: <BlrBer /> },
       // Unlisted (accessible via links within pages)
-      { path: "inventory/item-issue", element: <ItemIssue /> },
       { path: "inventory/repair-history", element: <RepairHistory /> },
       { path: "employee/list", element: <EmployeeList /> },
     ],

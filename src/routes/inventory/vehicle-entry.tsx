@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -26,8 +25,8 @@ import {
 import { Upload } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
-import { addAsset, getAssets } from "@/services/catalog";
-import type { Asset } from "@/types";
+import { addLoad, getLoads } from "@/services/loads";
+import type { Load } from "@/types";
 
 const CATEGORIES = ["Vehicle", "Gun", "Equipment", "Weapon"] as const;
 
@@ -119,8 +118,7 @@ const EMPTY_FORM = {
   name: "",
   catalog_no: "",
   unit: "",
-  blr: false,
-  ber: false,
+  quantity: 1,
   description: "",
   image: null as string | null,
 };
@@ -128,53 +126,52 @@ const EMPTY_FORM = {
 export default function VehicleEntry() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [catalog, setCatalog] = useState<Asset[]>([]);
+  const [loads, setLoads] = useState<Load[]>([]);
 
   const set = (field: keyof typeof EMPTY_FORM, value: unknown) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
   useEffect(() => {
-    getAssets()
-      .then(setCatalog)
+    getLoads()
+      .then(setLoads)
       .catch(() => {});
   }, []);
 
   // Suggestions filtered by selected category
   const categoryPool = form.category
-    ? catalog.filter((a) => a.category === form.category)
-    : catalog;
+    ? loads.filter((l) => l.category === form.category)
+    : loads;
 
   const typeSuggestions = [
-    ...new Set(categoryPool.map((a) => a.catalog_type).filter(Boolean)),
+    ...new Set(categoryPool.map((l) => l.catalog_type).filter(Boolean)),
   ];
   const nameSuggestions = [
-    ...new Set(categoryPool.map((a) => a.name).filter(Boolean)),
+    ...new Set(categoryPool.map((l) => l.name).filter(Boolean)),
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await addAsset({
+      await addLoad({
         catalog_no: form.catalog_no,
         name: form.name,
         category: form.category,
         catalog_type: form.catalog_type,
         unit: form.unit,
-        blr: form.blr,
-        ber: form.ber,
+        quantity: Number(form.quantity),
         description: form.description,
         image: form.image,
       });
-      goeyToast.success("Asset added successfully", {
-        description: "The asset has been added to the catalog",
+      goeyToast.success("Load added successfully", {
+        description: "The load has been added",
       });
       setForm(EMPTY_FORM);
-      getAssets()
-        .then(setCatalog)
+      getLoads()
+        .then(setLoads)
         .catch(() => {});
     } catch (err) {
-      toastError("Failed to add asset", err);
+      toastError("Failed to add load", err);
     } finally {
       setLoading(false);
     }
@@ -183,18 +180,16 @@ export default function VehicleEntry() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">
-          Add Asset
-        </h2>
+        <h2 className="text-3xl font-bold tracking-tight">Add Load</h2>
         <p className="text-muted-foreground">
-          Add a new asset to the catalog (vehicle, gun, equipment, weapon)
+          Add a new load (vehicle, gun, equipment, weapon)
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Asset Details</CardTitle>
-          <CardDescription>Enter the details of the new asset</CardDescription>
+          <CardTitle>Load Details</CardTitle>
+          <CardDescription>Enter the details of the new load</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
@@ -268,24 +263,17 @@ export default function VehicleEntry() {
                 />
               </div>
 
-              {/* BLR / BER */}
-              <div className="flex items-center gap-6 pt-6">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="blr"
-                    checked={form.blr}
-                    onCheckedChange={(v) => set("blr", v)}
-                  />
-                  <Label htmlFor="blr">BLR</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="ber"
-                    checked={form.ber}
-                    onCheckedChange={(v) => set("ber", v)}
-                  />
-                  <Label htmlFor="ber">BER</Label>
-                </div>
+              {/* Quantity */}
+              <div className="space-y-2">
+                <Label htmlFor="quantity">Quantity</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  min={1}
+                  value={form.quantity}
+                  onChange={(e) => set("quantity", Math.max(1, Number(e.target.value)))}
+                  required
+                />
               </div>
             </div>
 
@@ -294,7 +282,7 @@ export default function VehicleEntry() {
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                placeholder="Enter asset description or additional notes"
+                placeholder="Enter load description or additional notes"
                 rows={4}
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
@@ -303,7 +291,7 @@ export default function VehicleEntry() {
 
             {/* Image */}
             <div className="space-y-2">
-              <Label>Asset Image</Label>
+              <Label>Load Image</Label>
               <div className="flex items-center justify-center w-full">
                 <label
                   htmlFor="asset-image-upload"
@@ -338,7 +326,7 @@ export default function VehicleEntry() {
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Save Asset"}
+              {loading ? "Saving..." : "Save Load"}
             </Button>
           </CardFooter>
         </form>

@@ -9,8 +9,10 @@ export interface Item {
   rack_no: string;
   description: string;
   image: string | null;
-  status: "pending" | "active" | "rejected";
-  blr: boolean;
-  ber: boolean;
+  status: "pending" | "active" | "rejected" | "is_unservicable" | "is_lost";
+  unservicable_count: number;
+  lost_count: number;
+  blr_count: number;
+  ber_count: number;
   created_at?: Date;
 }

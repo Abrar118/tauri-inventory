@@ -18,13 +18,18 @@ export async function getItems(): Promise<Item[]> {
 }
 
 export async function addItem(
-  item: Omit<Item, "id" | "status" | "blr" | "ber" | "created_at">,
+  item: Omit<Item, "id" | "status" | "blr_count" | "ber_count" | "created_at" | "unservicable_count" | "lost_count"> & {
+    unservicable_count?: number;
+    lost_count?: number;
+  },
 ): Promise<string> {
   const ref = await addDoc(collection(db, COLLECTION), {
     ...item,
+    unservicable_count: item.unservicable_count ?? 0,
+    lost_count: item.lost_count ?? 0,
+    blr_count: 0,
+    ber_count: 0,
     status: "pending",
-    blr: false,
-    ber: false,
     created_at: serverTimestamp(),
   });
   return ref.id;
