@@ -38,6 +38,15 @@ No dedicated `npm test` or lint script is configured currently; use `npm run bui
 - BLR/BER is count-based, not boolean: use `blr_count` and `ber_count` (numbers) for both `Item` and `Load`.
 - For `Load`, the quantity field is required and used for BLR/BER deductions.
 
+## UI Design Direction
+- Visual tone: vibrant, modern command-center UI for contemporary military units.
+- Avoid default shadcn-looking output; keep the design language custom and product-specific.
+- Color direction: electric/cobalt blues as primary, signal-lime accents, neutral steel/slate supports, clear danger reds.
+- Surfaces: use layered gradients, soft-glass cards, and high-clarity contrast (not flat white-only panels).
+- Shape system: medium/large rounded corners, clean spacing rhythm, and confident component silhouettes.
+- Motion: subtle lift/focus transitions on interactive elements; avoid noisy animations.
+- Keep all UI updates responsive for desktop and mobile breakpoints.
+
 ## Testing Guidelines
 Automated tests are not set up yet. Before opening a PR:
 - Run `npm run build`.

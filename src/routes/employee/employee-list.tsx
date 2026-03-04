@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -32,11 +33,11 @@ import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { getEmployees, deleteEmployee } from "@/services/employees";
 import { EditEmployeeModal } from "../../components/edit-employee-modal";
-import { AddEmployeeModal } from "./add-employee";
 import type { Employee } from "@/types";
 import { useAuth } from "@/context/auth-context";
 
 export default function EmployeeList() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +45,6 @@ export default function EmployeeList() {
     null
   );
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const { accountType } = useAuth();
   const canAddEmployee = accountType === "ADMIN" || accountType === "OC";
   const canSeeOnline = accountType === "OC" || accountType === "WORKSHOP_OFFICER";
@@ -111,7 +111,7 @@ export default function EmployeeList() {
         </div>
         {canAddEmployee && (
           <div className="flex items-center gap-2">
-            <Button onClick={() => setIsAddModalOpen(true)}>
+            <Button onClick={() => navigate("/employee/employees?tab=add")}>
               <UserPlus className="mr-2 h-4 w-4" />
               Add Employee
             </Button>
@@ -224,12 +224,6 @@ export default function EmployeeList() {
           onUpdated={handleEmployeeUpdated}
         />
       )}
-
-      <AddEmployeeModal
-        open={isAddModalOpen}
-        onOpenChange={setIsAddModalOpen}
-        onAdded={(emp) => setEmployees((prev) => [emp, ...prev])}
-      />
     </div>
   );
 }

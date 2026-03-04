@@ -19,13 +19,16 @@ import ItemEntry from "./routes/inventory/item-entry";
 import VehicleEntry from "./routes/inventory/vehicle-entry";
 import VehicleList from "./routes/inventory/vehicle-list";
 import ItemList from "./routes/inventory/item-list";
+import ItemsPage from "./routes/inventory/items";
+import LoadsPage from "./routes/inventory/loads";
+import Demands from "./routes/inventory/demands";
 import LostItems from "./routes/inventory/lost-items";
 import RepairHistory from "./routes/inventory/repair-history";
 import BarcodeCreation from "./routes/inventory/barcode-creation";
 import BlrBer from "./routes/inventory/blr-ber";
 import OutStationRepair from "./routes/inventory/out-station-repair";
 import EmployeeList from "./routes/employee/employee-list";
-import AddEmployeePage from "./routes/employee/add-employee-page";
+import EmployeesPage from "./routes/employee/employees";
 import { GoeyToaster } from "goey-toast";
 import "goey-toast/styles.css";
 import { ThemeProvider } from "./components/theme-provider";
@@ -58,18 +61,21 @@ const router = createBrowserRouter([
       { path: "inventory/out-station-repair", element: <OutStationRepair /> },
       { path: "inventory/report", element: <Report /> },
       // Group 2
+      { path: "inventory/items", element: <ItemsPage /> },
+      { path: "inventory/loads", element: <LoadsPage /> },
       { path: "inventory/item-entry", element: <ItemEntry /> },
       { path: "inventory/vehicle-entry", element: <VehicleEntry /> },
       { path: "inventory/vehicle-list", element: <VehicleList /> },
       { path: "inventory/item-list", element: <ItemList /> },
+      { path: "inventory/demands", element: <Demands /> },
       { path: "inventory/lost-items", element: <LostItems /> },
       // Group 3
       { path: "inventory/barcode-creation", element: <BarcodeCreation /> },
       { path: "inventory/blr-ber", element: <BlrBer /> },
       // Unlisted (accessible via links within pages)
       { path: "inventory/repair-history", element: <RepairHistory /> },
+      { path: "employee/employees", element: <EmployeesPage /> },
       { path: "employee/list", element: <EmployeeList /> },
-      { path: "employee/add", element: <AddEmployeePage /> },
     ],
   },
 ]);

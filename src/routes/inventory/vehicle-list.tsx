@@ -293,7 +293,7 @@ export default function VehicleList() {
             <AlertTriangle className="mr-2 h-4 w-4 text-destructive" />
             Mark BER
           </Button>
-          <Button onClick={() => navigate("/inventory/vehicle-entry")}>
+          <Button onClick={() => navigate("/inventory/loads?tab=add")}>
             <PackagePlus className="mr-2 h-4 w-4" />
             Add Load
           </Button>

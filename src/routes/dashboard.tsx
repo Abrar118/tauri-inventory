@@ -22,6 +22,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,7 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Car, Package, LogIn, LogOut, Plus, Minus, X } from "lucide-react";
+import { Car, Package, LogIn, LogOut, Plus, Minus, X, Eye, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
@@ -44,7 +50,19 @@ import { getLoads } from "@/services/loads";
 import { getItems } from "@/services/items";
 import { getEntries, updateEntry } from "@/services/entries";
 import { updateItem } from "@/services/items";
-import type { Entry, Item, Load } from "@/types";
+import { getDemands } from "@/services/demands";
+import type { Demand, Entry, Item, Load } from "@/types";
+import { useNavigate } from "react-router-dom";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 // ── AutocompleteInput ─────────────────────────────────────────────────────────
 
 interface AutocompleteInputProps {
@@ -152,13 +170,17 @@ type PendingPart = { type: string; name: string; item_no: string; quantity: numb
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [loads, setLoads] = useState<Load[]>([]);
   const [items, setItems] = useState<Item[]>([]);
+  const [demands, setDemands] = useState<Demand[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [chartRange, setChartRange] = useState<"weekly" | "monthly" | "yearly">("weekly");
   const [loading, setLoading] = useState(true);
 
   // Dialog
   const [dialogEntry, setDialogEntry] = useState<Entry | null>(null);
+  const [detailsEntry, setDetailsEntry] = useState<Entry | null>(null);
   const [dialogMode, setDialogMode] = useState<"issue" | "exit">("issue");
 
   // Issue-parts form state
@@ -170,11 +192,12 @@ export default function Dashboard() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    Promise.all([getLoads(), getItems(), getEntries()])
-      .then(([ldss, itms, ents]) => {
+    Promise.all([getLoads(), getItems(), getEntries(), getDemands()])
+      .then(([ldss, itms, ents, dmds]) => {
         setLoads(ldss);
         setItems(itms);
         setEntries(ents);
+        setDemands(dmds);
       })
       .catch((err) => toastError("Failed to load dashboard data", err))
       .finally(() => setLoading(false));
@@ -195,6 +218,62 @@ export default function Dashboard() {
   ).length;
 
   const wip = entries.filter((e) => e.out_time === null);
+  const openDemands = demands.filter((d) => !d.fulfilled);
+
+  const vehicleEntries = entries.filter(
+    (e) => e.asset_category.toLowerCase() === "vehicle",
+  );
+
+  const chartData = (() => {
+    const now = new Date();
+    if (chartRange === "weekly") {
+      const days = [...Array(7)].map((_, idx) => {
+        const date = new Date(now);
+        date.setDate(now.getDate() - (6 - idx));
+        const key = date.toISOString().slice(0, 10);
+        return {
+          label: date.toLocaleDateString(undefined, { weekday: "short" }),
+          key,
+        };
+      });
+      return days.map(({ label, key }) => ({
+        label,
+        entry: vehicleEntries.filter((e) => e.entry_time.slice(0, 10) === key).length,
+        exit: vehicleEntries.filter((e) => e.out_time?.slice(0, 10) === key).length,
+      }));
+    }
+
+    if (chartRange === "monthly") {
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      return [...Array(lastDay)].map((_, idx) => {
+        const day = idx + 1;
+        const date = new Date(year, month, day);
+        const key = date.toISOString().slice(0, 10);
+        return {
+          label: String(day),
+          entry: vehicleEntries.filter((e) => e.entry_time.slice(0, 10) === key).length,
+          exit: vehicleEntries.filter((e) => e.out_time?.slice(0, 10) === key).length,
+        };
+      });
+    }
+
+    return [...Array(12)].map((_, idx) => {
+      const label = new Date(now.getFullYear(), idx, 1).toLocaleDateString(undefined, {
+        month: "short",
+      });
+      return {
+        label,
+        entry: vehicleEntries.filter(
+          (e) => new Date(e.entry_time).getMonth() === idx,
+        ).length,
+        exit: vehicleEntries.filter((e) =>
+          e.out_time ? new Date(e.out_time).getMonth() === idx : false,
+        ).length,
+      };
+    });
+  })();
 
   const getEntryBlrBer = (entry: Entry): { blr: boolean; ber: boolean } => {
     const a = loads.find((l) => l.catalog_no === entry.asset_no);
@@ -480,13 +559,15 @@ export default function Dashboard() {
     colorClass: string;
     iconColorClass: string;
   }) => (
-    <Card className={colorClass}>
+    <Card className={cn("overflow-hidden border-2 shadow-lg", colorClass)}>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className={`h-4 w-4 ${iconColorClass}`} />
+        <div className="rounded-full bg-background/80 dark:bg-card/90 p-1.5 border border-border/70 shadow-sm">
+          <Icon className={`h-4 w-4 ${iconColorClass}`} />
+        </div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">
+        <div className="text-2xl font-black tracking-tight">
           {loading ? "—" : (value ?? 0)}
         </div>
       </CardContent>
@@ -508,44 +589,127 @@ export default function Dashboard() {
           title="Total Loads"
           value={loads.length}
           icon={Car}
-          colorClass="bg-chart-2/10"
+          colorClass="bg-gradient-to-br from-chart-2/35 via-chart-2/20 to-card border-chart-2/55"
           iconColorClass="text-chart-2"
         />
         <StatCard
           title="Total Items"
           value={items.length}
           icon={Package}
-          colorClass="bg-chart-1/10"
+          colorClass="bg-gradient-to-br from-chart-1/35 via-chart-1/20 to-card border-chart-1/55"
           iconColorClass="text-chart-1"
         />
         <StatCard
           title="Today's Entries"
           value={todayEntryCount}
           icon={LogIn}
-          colorClass="bg-chart-3/10"
+          colorClass="bg-gradient-to-br from-chart-3/35 via-chart-3/20 to-card border-chart-3/55"
           iconColorClass="text-chart-3"
         />
         <StatCard
           title="Today's Exits"
           value={todayOutCount}
           icon={LogOut}
-          colorClass="bg-chart-4/10"
+          colorClass="bg-gradient-to-br from-chart-4/35 via-chart-4/20 to-card border-chart-4/55"
           iconColorClass="text-chart-4"
         />
         <StatCard
           title="Monthly Entries"
           value={monthEntryCount}
           icon={LogIn}
-          colorClass="bg-chart-5/10"
+          colorClass="bg-gradient-to-br from-chart-5/30 via-chart-5/18 to-card border-chart-5/55"
           iconColorClass="text-chart-5"
         />
         <StatCard
           title="Monthly Exits"
           value={monthOutCount}
           icon={LogOut}
-          colorClass="bg-muted/50"
-          iconColorClass="text-muted-foreground"
+          colorClass="bg-gradient-to-br from-accent/40 via-accent/20 to-card border-accent/60"
+          iconColorClass="text-accent-foreground"
         />
+      </div>
+
+      {/* ── Vehicle chart + demand card ─────────────────────────────────── */}
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
+          <CardHeader className="flex flex-row items-start justify-between">
+            <div>
+              <CardTitle>Vehicle Entry/Exit</CardTitle>
+              <CardDescription>
+                Trend of vehicle repair inflow and exit
+              </CardDescription>
+            </div>
+            <div className="inline-flex rounded-lg border bg-muted/30 p-1">
+              {(["weekly", "monthly", "yearly"] as const).map((range) => (
+                <Button
+                  key={range}
+                  size="sm"
+                  variant={chartRange === range ? "default" : "ghost"}
+                  className="capitalize"
+                  onClick={() => setChartRange(range)}
+                >
+                  {range}
+                </Button>
+              ))}
+            </div>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="4 4" strokeOpacity={0.25} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="entry"
+                  stroke="var(--color-chart-2)"
+                  strokeWidth={3}
+                  dot={{ r: 3 }}
+                  name="Entries"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="exit"
+                  stroke="var(--color-chart-3)"
+                  strokeWidth={3}
+                  dot={{ r: 3 }}
+                  name="Exits"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Items in Demand</CardTitle>
+            <CardDescription>
+              {loading ? "Loading..." : `${openDemands.length} open demand request(s)`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {openDemands.slice(0, 6).map((demand) => (
+              <div
+                key={demand.id}
+                className="rounded-lg border px-3 py-2 bg-card/70"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium">{demand.name}</p>
+                  <Badge variant="outline">Qty {demand.quantity}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground font-mono">{demand.item_no}</p>
+              </div>
+            ))}
+            {!loading && openDemands.length === 0 && (
+              <p className="text-sm text-muted-foreground">No active demand items.</p>
+            )}
+            <Button className="w-full mt-2" onClick={() => navigate("/inventory/demands")}>
+              Open Demands
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── Work In Progress table ────────────────────────────────────────── */}
@@ -634,13 +798,26 @@ export default function Dashboard() {
                     </TableCell>
                     <TableCell>{entry.issued_parts.length}</TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openDialog(entry)}
-                      >
-                        Manage
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            className="bg-gradient-to-r from-chart-2 to-chart-4 text-white border-0 shadow-md hover:from-chart-2/90 hover:to-chart-4/90"
+                          >
+                            Actions
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openDialog(entry)}>
+                            <Wrench className="mr-2 h-4 w-4" />
+                            Manage
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setDetailsEntry(entry)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 );
@@ -649,6 +826,90 @@ export default function Dashboard() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={!!detailsEntry} onOpenChange={(o) => !o && setDetailsEntry(null)}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Entry Details</DialogTitle>
+            <DialogDescription>
+              {detailsEntry?.asset_no} · {detailsEntry?.asset_name}
+            </DialogDescription>
+          </DialogHeader>
+          {detailsEntry && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Category</p>
+                  <p className="font-medium">{detailsEntry.asset_category}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Type</p>
+                  <p className="font-medium">{detailsEntry.asset_type}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Unit</p>
+                  <p className="font-medium">{detailsEntry.asset_unit || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Division</p>
+                  <p className="font-medium">{detailsEntry.div || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Status</p>
+                  <p className="font-medium">{detailsEntry.status}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Entered By</p>
+                  <p className="font-medium">{detailsEntry.entered_by || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Entry Time</p>
+                  <p className="font-medium">{formatDateTime(detailsEntry.entry_time)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Out Time</p>
+                  <p className="font-medium">
+                    {detailsEntry.out_time ? formatDateTime(detailsEntry.out_time) : "In Progress"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Issued Parts</p>
+                {detailsEntry.issued_parts.length === 0 ? (
+                  <p className="text-sm">No issued parts.</p>
+                ) : (
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Item No.</TableHead>
+                          <TableHead>Quantity</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {detailsEntry.issued_parts.map((part) => (
+                          <TableRow key={part.item_no}>
+                            <TableCell className="font-mono">{part.item_no}</TableCell>
+                            <TableCell>{part.quantity}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+
+              {detailsEntry.notes && (
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Notes</p>
+                  <p className="text-sm">{detailsEntry.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Manage dialog ────────────────────────────────────────────────── */}
       <Dialog

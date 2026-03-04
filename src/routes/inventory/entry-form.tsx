@@ -1,7 +1,6 @@
 "use client";
 
 import type React from "react";
-
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,16 +21,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
-import { addEntry } from "@/services/entries";
+import { addEntry, getEntries } from "@/services/entries";
 import { getLoads } from "@/services/loads";
-import type { Load } from "@/types";
+import type { Entry, Load } from "@/types";
 import { useAuth } from "@/context/auth-context";
 
 const CATEGORIES = ["Vehicle", "Gun", "Equipment", "Weapon"] as const;
-
-// ── AutocompleteInput ─────────────────────────────────────────────────────────
 
 interface AutocompleteInputProps {
   value: string;
@@ -111,8 +117,6 @@ function AutocompleteInput({
   );
 }
 
-// ── Form ──────────────────────────────────────────────────────────────────────
-
 const EMPTY_FORM = {
   asset_category: "",
   asset_unit: "",
@@ -129,32 +133,34 @@ export default function EntryForm() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [matchingNos, setMatchingNos] = useState<string[]>([]);
   const [loads, setLoads] = useState<Load[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [historySearch, setHistorySearch] = useState("");
 
   const set = (field: keyof typeof EMPTY_FORM, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  useEffect(() => {
-    getLoads()
-      .then(setLoads)
+  const loadData = () => {
+    Promise.all([getLoads(), getEntries()])
+      .then(([l, e]) => {
+        setLoads(l);
+        setEntries(e);
+      })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
-  // Only active loads can be used for entries
   const activeLoads = loads.filter((l) => l.status === "active");
-
-  // Loads in the selected category
   const categoryPool = form.asset_category
     ? activeLoads.filter((a) => a.category === form.asset_category)
     : [];
 
-  // ── Cascading suggestions ─────────────────────────────────────────────────
-
-  // Unit — unique units from category pool
   const unitSuggestions = [
     ...new Set(categoryPool.map((a) => a.unit).filter(Boolean)),
   ];
 
-  // Type — filtered by unit when set
   const typeSuggestions = [
     ...new Set(
       (form.asset_unit
@@ -166,7 +172,6 @@ export default function EntryForm() {
     ),
   ];
 
-  // Name — filtered by unit + type
   const nameSuggestions = [
     ...new Set(
       categoryPool
@@ -179,8 +184,6 @@ export default function EntryForm() {
         .filter(Boolean),
     ),
   ];
-
-  // ── Compute matching catalog numbers when name is set ─────────────────────
 
   const computeMatches = (
     name: string,
@@ -199,8 +202,6 @@ export default function EntryForm() {
       .map((a) => a.catalog_no)
       .filter(Boolean);
   };
-
-  // ── Field change handlers with cascade resets ─────────────────────────────
 
   const handleCategoryChange = (value: string) => {
     setMatchingNos([]);
@@ -240,8 +241,6 @@ export default function EntryForm() {
     setForm((prev) => ({ ...prev, asset_name: value, asset_no: autoNo }));
   };
 
-  // ── Submit ────────────────────────────────────────────────────────────────
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -265,6 +264,7 @@ export default function EntryForm() {
       });
       setForm(EMPTY_FORM);
       setMatchingNos([]);
+      loadData();
     } catch (err) {
       toastError("Failed to create entry", err);
     } finally {
@@ -272,180 +272,210 @@ export default function EntryForm() {
     }
   };
 
+  const filteredEntries = entries
+    .slice()
+    .sort((a, b) => new Date(b.entry_time).getTime() - new Date(a.entry_time).getTime())
+    .filter(
+      (e) =>
+        e.asset_no.toLowerCase().includes(historySearch.toLowerCase()) ||
+        e.asset_name.toLowerCase().includes(historySearch.toLowerCase()) ||
+        e.asset_type.toLowerCase().includes(historySearch.toLowerCase()),
+    );
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Load Entry</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Entry</h2>
         <p className="text-muted-foreground">
-          Record an asset entering the system for repair or maintenance
+          Record a new repair entry or review past entries
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Entry Details</CardTitle>
-          <CardDescription>
-            Select category, then fill unit, type and name — Catalog No. fills
-            from the catalog
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {/* Category */}
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select
-                  value={form.asset_category}
-                  onValueChange={handleCategoryChange}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      <Tabs defaultValue="new-entry">
+        <TabsList>
+          <TabsTrigger value="new-entry">New Entry</TabsTrigger>
+          <TabsTrigger value="entry-history">Entry History</TabsTrigger>
+        </TabsList>
 
-              {/* Unit */}
-              <div className="space-y-2">
-                <Label>Unit</Label>
-                <AutocompleteInput
-                  value={form.asset_unit}
-                  onChange={handleUnitChange}
-                  suggestions={unitSuggestions}
-                  placeholder={
-                    form.asset_category
-                      ? "Start typing or select…"
-                      : "Select a category first"
-                  }
-                  disabled={!form.asset_category}
-                  required
-                />
-              </div>
+        <TabsContent value="new-entry">
+          <Card>
+            <CardHeader>
+              <CardTitle>Entry Details</CardTitle>
+              <CardDescription>
+                Select category, then fill unit, type and name — Catalog No. fills
+                from the catalog
+              </CardDescription>
+            </CardHeader>
+            <form onSubmit={handleSubmit}>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <Select value={form.asset_category} onValueChange={handleCategoryChange} required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORIES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              {/* Type */}
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <AutocompleteInput
-                  value={form.asset_type}
-                  onChange={handleTypeChange}
-                  suggestions={typeSuggestions}
-                  placeholder={
-                    form.asset_category
-                      ? "Start typing or select…"
-                      : "Select a category first"
-                  }
-                  disabled={!form.asset_category}
-                  required
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label>Unit</Label>
+                    <AutocompleteInput
+                      value={form.asset_unit}
+                      onChange={handleUnitChange}
+                      suggestions={unitSuggestions}
+                      placeholder={form.asset_category ? "Start typing or select…" : "Select a category first"}
+                      disabled={!form.asset_category}
+                      required
+                    />
+                  </div>
 
-              {/* Name */}
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <AutocompleteInput
-                  value={form.asset_name}
-                  onChange={handleNameChange}
-                  suggestions={nameSuggestions}
-                  placeholder={
-                    form.asset_type
-                      ? "Start typing or select…"
-                      : "Select a type first"
-                  }
-                  disabled={!form.asset_type}
-                  required
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <AutocompleteInput
+                      value={form.asset_type}
+                      onChange={handleTypeChange}
+                      suggestions={typeSuggestions}
+                      placeholder={form.asset_category ? "Start typing or select…" : "Select a category first"}
+                      disabled={!form.asset_category}
+                      required
+                    />
+                  </div>
 
-              {/* Catalog No. */}
-              <div className="space-y-2">
-                <Label>
-                  Catalog No.
-                  <span className="ml-1 text-xs text-muted-foreground">
-                    {matchingNos.length > 1
-                      ? `(${matchingNos.length} matches)`
-                      : "(auto-filled)"}
-                  </span>
-                </Label>
-                {matchingNos.length > 1 ? (
-                  <Select
-                    value={form.asset_no}
-                    onValueChange={(v) => set("asset_no", v)}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select catalog number" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {matchingNos.map((no) => (
-                        <SelectItem key={no} value={no}>
-                          {no}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    placeholder={
-                      form.asset_name
-                        ? "No catalog match — enter manually"
-                        : "Fill fields above first"
-                    }
-                    value={form.asset_no}
-                    onChange={(e) => set("asset_no", e.target.value)}
-                    required
+                  <div className="space-y-2">
+                    <Label>Name</Label>
+                    <AutocompleteInput
+                      value={form.asset_name}
+                      onChange={handleNameChange}
+                      suggestions={nameSuggestions}
+                      placeholder={form.asset_type ? "Start typing or select…" : "Select a type first"}
+                      disabled={!form.asset_type}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>
+                      Catalog No.
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        {matchingNos.length > 1 ? `(${matchingNos.length} matches)` : "(auto-filled)"}
+                      </span>
+                    </Label>
+                    {matchingNos.length > 1 ? (
+                      <Select value={form.asset_no} onValueChange={(v) => set("asset_no", v)} required>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select catalog number" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {matchingNos.map((no) => (
+                            <SelectItem key={no} value={no}>
+                              {no}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        placeholder={form.asset_name ? "No catalog match — enter manually" : "Fill fields above first"}
+                        value={form.asset_no}
+                        onChange={(e) => set("asset_no", e.target.value)}
+                        required
+                      />
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Div</Label>
+                    <Input
+                      placeholder="Enter division"
+                      value={form.div}
+                      onChange={(e) => set("div", e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Describe the issue or work required"
+                    rows={4}
+                    value={form.notes}
+                    onChange={(e) => set("notes", e.target.value)}
                   />
-                )}
-              </div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-between border-t pt-6">
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => {
+                    setForm(EMPTY_FORM);
+                    setMatchingNos([]);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Saving..." : "Create Entry"}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </TabsContent>
 
-              {/* Div */}
-              <div className="space-y-2">
-                <Label>Div</Label>
-                <Input
-                  placeholder="Enter division"
-                  value={form.div}
-                  onChange={(e) => set("div", e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Describe the issue or work required"
-                rows={4}
-                value={form.notes}
-                onChange={(e) => set("notes", e.target.value)}
+        <TabsContent value="entry-history">
+          <Card>
+            <CardHeader>
+              <CardTitle>Entry History</CardTitle>
+              <CardDescription>All recorded entries</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Input
+                placeholder="Search by asset no, name or type..."
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
               />
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between border-t pt-6">
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() => {
-                setForm(EMPTY_FORM);
-                setMatchingNos([]);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Create Entry"}
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Asset No.</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Entry Time</TableHead>
+                    <TableHead>Out Time</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Entered By</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredEntries.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="font-mono">{entry.asset_no}</TableCell>
+                      <TableCell>{entry.asset_name}</TableCell>
+                      <TableCell>{entry.asset_type}</TableCell>
+                      <TableCell>{new Date(entry.entry_time).toLocaleString()}</TableCell>
+                      <TableCell>
+                        {entry.out_time ? new Date(entry.out_time).toLocaleString() : "In Progress"}
+                      </TableCell>
+                      <TableCell>{entry.status}</TableCell>
+                      <TableCell>{entry.entered_by || "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

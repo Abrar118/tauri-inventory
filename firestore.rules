@@ -51,6 +51,10 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /demands/{demandId} {
+      allow read, create, update, delete: if isSignedIn();
+    }
+
     match /employees/{employeeId} {
       allow read: if isSignedIn();
       allow create, delete: if isApprover();

@@ -63,3 +63,16 @@ The app manages:
 
 ### Current state
 All pages are UI-only with data sourced from `src/data/dummy-data.ts`. Form submissions use `setTimeout` to simulate API calls — no real backend integration exists yet. When adding backend calls, use the Tauri `invoke` API from `@tauri-apps/api`.
+
+## Design Sense
+- Target a vibrant, modern command-center look suitable for modern military operations.
+- Do not ship visuals that feel like default shadcn templates.
+- Favor a bold but disciplined palette:
+  - primary: electric/cobalt blue
+  - accent: signal-lime
+  - support: neutral steel/slate
+  - alerts: high-clarity red/orange
+- Prefer layered backgrounds, gradient depth, and soft-glass card surfaces over flat monochrome layouts.
+- Use confident spacing, rounded geometry, and readable data-first hierarchy.
+- Keep interaction polish subtle (hover elevation, focus clarity, gentle transitions).
+- Ensure parity across desktop and mobile.
