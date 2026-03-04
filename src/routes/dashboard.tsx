@@ -198,7 +198,10 @@ export default function Dashboard() {
 
   const getEntryBlrBer = (entry: Entry): { blr: boolean; ber: boolean } => {
     const a = loads.find((l) => l.catalog_no === entry.asset_no);
-    return { blr: a?.blr ?? false, ber: a?.ber ?? false };
+    return {
+      blr: (a?.blr_count ?? 0) > 0,
+      ber: (a?.ber_count ?? 0) > 0,
+    };
   };
 
   // ── Part autocomplete data ────────────────────────────────────────────────

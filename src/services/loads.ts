@@ -5,6 +5,7 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Load } from "@/types";
@@ -46,4 +47,44 @@ export async function updateLoad(
   data: Partial<Omit<Load, "id">>,
 ): Promise<void> {
   await updateDoc(doc(db, COLLECTION, id), data);
+}
+
+export async function markLoadCondition(
+  id: string,
+  mode: "blr" | "ber",
+  count: number,
+): Promise<Pick<Load, "quantity" | "blr_count" | "ber_count">> {
+  if (!Number.isInteger(count) || count < 1) {
+    throw new Error("Invalid condition count");
+  }
+
+  const ref = doc(db, COLLECTION, id);
+
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) {
+      throw new Error("Load not found");
+    }
+
+    const data = snap.data() as Load;
+    const currentQty = Number(data.quantity ?? 0);
+    if (count > currentQty) {
+      throw new Error("Condition count exceeds available quantity");
+    }
+
+    const next = {
+      quantity: currentQty - count,
+      blr_count:
+        mode === "blr"
+          ? Number(data.blr_count ?? 0) + count
+          : Number(data.blr_count ?? 0),
+      ber_count:
+        mode === "ber"
+          ? Number(data.ber_count ?? 0) + count
+          : Number(data.ber_count ?? 0),
+    };
+
+    tx.update(ref, next);
+    return next;
+  });
 }

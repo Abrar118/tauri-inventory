@@ -25,9 +25,11 @@ import BarcodeCreation from "./routes/inventory/barcode-creation";
 import BlrBer from "./routes/inventory/blr-ber";
 import OutStationRepair from "./routes/inventory/out-station-repair";
 import EmployeeList from "./routes/employee/employee-list";
+import AddEmployeePage from "./routes/employee/add-employee-page";
 import { GoeyToaster } from "goey-toast";
 import "goey-toast/styles.css";
 import { ThemeProvider } from "./components/theme-provider";
+import { AppErrorBoundary } from "./components/app-error-boundary";
 import { AuthProvider, useAuth } from "./context/auth-context";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -67,6 +69,7 @@ const router = createBrowserRouter([
       // Unlisted (accessible via links within pages)
       { path: "inventory/repair-history", element: <RepairHistory /> },
       { path: "employee/list", element: <EmployeeList /> },
+      { path: "employee/add", element: <AddEmployeePage /> },
     ],
   },
 ]);
@@ -79,9 +82,11 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       enableSystem
       disableTransitionOnChange
     >
-      <AuthProvider>
-        <RouterProvider router={router} />
-      </AuthProvider>
+      <AppErrorBoundary>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </AppErrorBoundary>
       <GoeyToaster position="top-center" />
     </ThemeProvider>
   </React.StrictMode>

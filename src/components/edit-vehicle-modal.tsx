@@ -47,11 +47,12 @@ export function EditVehicleModal({
     category: vehicle.category,
     catalog_type: vehicle.catalog_type,
     unit: vehicle.unit,
+    quantity: vehicle.quantity,
     description: vehicle.description,
   });
   const [loading, setLoading] = useState(false);
 
-  const set = (field: keyof typeof form, value: string) =>
+  const set = (field: keyof typeof form, value: string | number) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,7 +60,11 @@ export function EditVehicleModal({
     if (!vehicle.id) return;
     setLoading(true);
     try {
-      const updates = { ...form, status: "pending" as const };
+      const updates = {
+        ...form,
+        quantity: Number(form.quantity),
+        status: "pending" as const,
+      };
       await updateLoad(vehicle.id, updates);
       goeyToast.success("Load updated", {
         description: "Load is now pending re-approval",
@@ -141,6 +146,17 @@ export function EditVehicleModal({
                 id="edit-unit"
                 value={form.unit}
                 onChange={(e) => set("unit", e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-qty">Quantity</Label>
+              <Input
+                id="edit-qty"
+                type="number"
+                min={0}
+                value={form.quantity}
+                onChange={(e) => set("quantity", Math.max(0, Number(e.target.value)))}
                 required
               />
             </div>

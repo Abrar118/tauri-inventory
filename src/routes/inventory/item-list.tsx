@@ -51,7 +51,13 @@ import {
 } from "@/components/ui/dialog";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
-import { getItems, deleteItem, approveItem, rejectItem, updateItem } from "@/services/items";
+import {
+  getItems,
+  deleteItem,
+  approveItem,
+  rejectItem,
+  markItemCondition,
+} from "@/services/items";
 import { useAuth } from "@/context/auth-context";
 import { EditItemModal } from "@/components/edit-item-modal";
 import type { Item } from "@/types";
@@ -223,12 +229,11 @@ export default function ItemList() {
     if (!blrBerSelected?.id || !blrBerMode) return;
     setBlrBerSubmitting(true);
     try {
-      const newQty = blrBerSelected.quantity - blrBerCount;
-      const update =
-        blrBerMode === "blr"
-          ? { quantity: newQty, blr_count: blrBerSelected.blr_count + blrBerCount }
-          : { quantity: newQty, ber_count: blrBerSelected.ber_count + blrBerCount };
-      await updateItem(blrBerSelected.id, update);
+      const update = await markItemCondition(
+        blrBerSelected.id,
+        blrBerMode,
+        blrBerCount,
+      );
       setItems((prev) =>
         prev.map((i) => (i.id === blrBerSelected.id ? { ...i, ...update } : i)),
       );
@@ -262,18 +267,11 @@ export default function ItemList() {
     if (!markSelectedItem?.id || !markMode) return;
     setMarkSubmitting(true);
     try {
-      const newQty = markSelectedItem.quantity - markCount;
-      const update =
-        markMode === "unservicable"
-          ? {
-              quantity: newQty,
-              unservicable_count: markSelectedItem.unservicable_count + markCount,
-            }
-          : {
-              quantity: newQty,
-              lost_count: markSelectedItem.lost_count + markCount,
-            };
-      await updateItem(markSelectedItem.id, update);
+      const update = await markItemCondition(
+        markSelectedItem.id,
+        markMode,
+        markCount,
+      );
       setItems((prev) =>
         prev.map((i) => (i.id === markSelectedItem.id ? { ...i, ...update } : i)),
       );

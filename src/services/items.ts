@@ -6,6 +6,7 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
+  runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Item } from "@/types";
@@ -52,4 +53,54 @@ export async function updateItem(
 
 export async function deleteItem(id: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTION, id));
+}
+
+export async function markItemCondition(
+  id: string,
+  mode: "blr" | "ber" | "unservicable" | "lost",
+  count: number,
+): Promise<
+  Pick<Item, "quantity" | "blr_count" | "ber_count" | "unservicable_count" | "lost_count">
+> {
+  if (!Number.isInteger(count) || count < 1) {
+    throw new Error("Invalid condition count");
+  }
+
+  const ref = doc(db, COLLECTION, id);
+
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) {
+      throw new Error("Item not found");
+    }
+
+    const data = snap.data() as Item;
+    const currentQty = Number(data.quantity ?? 0);
+    if (count > currentQty) {
+      throw new Error("Condition count exceeds available quantity");
+    }
+
+    const next = {
+      quantity: currentQty - count,
+      blr_count:
+        mode === "blr"
+          ? Number(data.blr_count ?? 0) + count
+          : Number(data.blr_count ?? 0),
+      ber_count:
+        mode === "ber"
+          ? Number(data.ber_count ?? 0) + count
+          : Number(data.ber_count ?? 0),
+      unservicable_count:
+        mode === "unservicable"
+          ? Number(data.unservicable_count ?? 0) + count
+          : Number(data.unservicable_count ?? 0),
+      lost_count:
+        mode === "lost"
+          ? Number(data.lost_count ?? 0) + count
+          : Number(data.lost_count ?? 0),
+    };
+
+    tx.update(ref, next);
+    return next;
+  });
 }

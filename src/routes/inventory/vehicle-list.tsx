@@ -56,7 +56,7 @@ import {
   approveLoad,
   rejectLoad,
   deleteLoad,
-  updateLoad,
+  markLoadCondition,
 } from "@/services/loads";
 import { useAuth } from "@/context/auth-context";
 import type { Load } from "@/types";
@@ -244,18 +244,11 @@ export default function VehicleList() {
     if (!blrBerSelected?.id || !blrBerMode) return;
     setBlrBerSubmitting(true);
     try {
-      const newQty = blrBerSelected.quantity - blrBerCount;
-      const update =
-        blrBerMode === "blr"
-          ? {
-              quantity: newQty,
-              blr_count: blrBerSelected.blr_count + blrBerCount,
-            }
-          : {
-              quantity: newQty,
-              ber_count: blrBerSelected.ber_count + blrBerCount,
-            };
-      await updateLoad(blrBerSelected.id, update);
+      const update = await markLoadCondition(
+        blrBerSelected.id,
+        blrBerMode,
+        blrBerCount,
+      );
       setLoads((prev) =>
         prev.map((l) => (l.id === blrBerSelected.id ? { ...l, ...update } : l)),
       );

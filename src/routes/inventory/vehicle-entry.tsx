@@ -29,6 +29,7 @@ import { addLoad, getLoads } from "@/services/loads";
 import type { Load } from "@/types";
 
 const CATEGORIES = ["Vehicle", "Gun", "Equipment", "Weapon"] as const;
+type LoadCategory = Load["category"];
 
 // ─── Autocomplete input ────────────────────────────────────────────────────────
 
@@ -113,7 +114,7 @@ function AutocompleteInput({
 // ─── Form ──────────────────────────────────────────────────────────────────────
 
 const EMPTY_FORM = {
-  category: "",
+  category: "" as "" | LoadCategory,
   catalog_type: "",
   name: "",
   catalog_no: "",
@@ -128,7 +129,10 @@ export default function VehicleEntry() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [loads, setLoads] = useState<Load[]>([]);
 
-  const set = (field: keyof typeof EMPTY_FORM, value: unknown) =>
+  const set = <K extends keyof typeof EMPTY_FORM>(
+    field: K,
+    value: (typeof EMPTY_FORM)[K],
+  ) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
   useEffect(() => {
@@ -151,6 +155,10 @@ export default function VehicleEntry() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.category) {
+      goeyToast.error("Please select a category");
+      return;
+    }
     setLoading(true);
     try {
       await addLoad({
@@ -199,7 +207,7 @@ export default function VehicleEntry() {
                 <Label htmlFor="category">Category</Label>
                 <Select
                   value={form.category}
-                  onValueChange={(v) => set("category", v)}
+                  onValueChange={(v) => set("category", v as LoadCategory)}
                   required
                 >
                   <SelectTrigger id="category">

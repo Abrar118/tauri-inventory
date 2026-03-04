@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import type { ComponentType } from "react";
 import { cn } from "@/lib/utils";
 import {
   Home,
@@ -17,8 +18,18 @@ import {
   Wrench,
 } from "lucide-react";
 import { useSidebarStore } from "@/store/sidebar-store";
+import { useAuth } from "@/context/auth-context";
 
-const navGroups = [
+const APPROVER_ROLES = ["ADMIN", "OC", "WORKSHOP_OFFICER"];
+
+type NavItem = {
+  name: string;
+  path: string;
+  icon: ComponentType<{ className?: string }>;
+  approverOnly?: boolean;
+};
+
+const navGroups: NavItem[][] = [
   [
     { name: "Dashboard", path: "/", icon: Home },
     { name: "Load Entry", path: "/inventory/entry", icon: FilePlus2 },
@@ -34,14 +45,18 @@ const navGroups = [
     { name: "BLR / BER", path: "/inventory/blr-ber", icon: AlertTriangle },
   ],
   [
-    { name: "Employee", path: "/employee/list", icon: Users },
+    { name: "Employee", path: "/employee/list", icon: Users, approverOnly: true },
+    { name: "Add Employee", path: "/employee/add", icon: Users, approverOnly: true },
     { name: "Barcode Gen", path: "/inventory/barcode-creation", icon: Barcode },
   ],
 ];
 
 export default function Sidebar() {
   const location = useLocation();
+  const { accountType } = useAuth();
   const { collapsed, toggle } = useSidebarStore();
+  const canSeeApproverItems =
+    accountType !== null && APPROVER_ROLES.includes(accountType);
 
   return (
     <aside
@@ -81,6 +96,10 @@ export default function Sidebar() {
           <div key={groupIndex}>
             <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-2")}>
               {group.map((item) => {
+                if (item.approverOnly && !canSeeApproverItems) {
+                  return null;
+                }
+
                 const isActive =
                   item.path === "/"
                     ? location.pathname === "/"

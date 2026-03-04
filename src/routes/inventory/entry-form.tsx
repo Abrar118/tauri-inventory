@@ -119,6 +119,7 @@ const EMPTY_FORM = {
   asset_type: "",
   asset_name: "",
   asset_no: "",
+  div: "",
   notes: "",
 };
 
@@ -251,6 +252,7 @@ export default function EntryForm() {
         asset_category: form.asset_category,
         asset_unit: form.asset_unit,
         asset_type: form.asset_type,
+        div: form.div || undefined,
         entry_time: new Date().toISOString(),
         out_time: null,
         status: "In Progress",
@@ -401,6 +403,17 @@ export default function EntryForm() {
                     required
                   />
                 )}
+              </div>
+
+              {/* Div */}
+              <div className="space-y-2">
+                <Label>Div</Label>
+                <Input
+                  placeholder="Enter division"
+                  value={form.div}
+                  onChange={(e) => set("div", e.target.value)}
+                  required
+                />
               </div>
             </div>
 

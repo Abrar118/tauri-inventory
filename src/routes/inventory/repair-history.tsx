@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,35 +28,36 @@ import {
 } from "@/components/ui/card";
 import { Calendar, Clock, Filter, Search, Truck } from "lucide-react";
 import { toastError } from "@/lib/toast";
-import { getRepairs } from "@/services/repairs";
+import { getEntries } from "@/services/entries";
 import { getLoads } from "@/services/loads";
-import type { Repair, Load } from "@/types";
+import type { Entry, Load } from "@/types";
 
 export default function RepairHistory() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [repairs, setRepairs] = useState<Repair[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
   const [assets, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getRepairs(), getLoads()])
-      .then(([r, a]) => {
-        setRepairs(r);
+    Promise.all([getEntries(), getLoads()])
+      .then(([e, a]) => {
+        setEntries(e);
         setLoads(a);
       })
       .catch((err) => toastError("Failed to load repair history", err))
       .finally(() => setLoading(false));
   }, []);
 
-  const filteredRepairs = repairs.filter((repair) => {
-    const matchesSearch = repair.vehicle_no
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+  const filteredEntries = entries.filter((entry) => {
+    const matchesSearch =
+      entry.asset_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      entry.asset_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       filterStatus === "all" ||
-      (filterStatus === "completed" && repair.out_time) ||
-      (filterStatus === "pending" && !repair.out_time);
+      (filterStatus === "completed" && entry.out_time) ||
+      (filterStatus === "pending" && !entry.out_time);
     return matchesSearch && matchesStatus;
   });
 
@@ -100,7 +102,7 @@ export default function RepairHistory() {
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Repair History</h2>
-        <p className="text-muted-foreground">View vehicle repair records</p>
+        <p className="text-muted-foreground">View asset repair records</p>
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -109,7 +111,7 @@ export default function RepairHistory() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search by vehicle no..."
+              placeholder="Search by asset no or name..."
               className="pl-8 w-[250px]"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -129,7 +131,7 @@ export default function RepairHistory() {
             </SelectContent>
           </Select>
         </div>
-        <Button>
+        <Button onClick={() => navigate("/inventory/entry")}>
           <Truck className="mr-2 h-4 w-4" />
           New Repair Entry
         </Button>
@@ -141,14 +143,15 @@ export default function RepairHistory() {
           <CardDescription>
             {loading
               ? "Loading..."
-              : `Showing ${filteredRepairs.length} of ${repairs.length} records`}
+              : `Showing ${filteredEntries.length} of ${entries.length} records`}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Vehicle No.</TableHead>
+                <TableHead>Asset No.</TableHead>
+                <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Check-in Time</TableHead>
                 <TableHead>Check-out Time</TableHead>
@@ -158,23 +161,24 @@ export default function RepairHistory() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRepairs.map((repair) => (
-                <TableRow key={repair.id}>
+              {filteredEntries.map((entry) => (
+                <TableRow key={entry.id}>
                   <TableCell className="font-medium">
-                    {repair.vehicle_no}
+                    {entry.asset_no}
                   </TableCell>
-                  <TableCell>{getLoadType(repair.vehicle_no)}</TableCell>
+                  <TableCell>{entry.asset_name}</TableCell>
+                  <TableCell>{entry.asset_type || getLoadType(entry.asset_no)}</TableCell>
                   <TableCell>
                     <div className="flex items-center">
                       <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                      {formatDate(repair.repair_time)}
+                      {formatDate(entry.entry_time)}
                     </div>
                   </TableCell>
                   <TableCell>
-                    {repair.out_time ? (
+                    {entry.out_time ? (
                       <div className="flex items-center">
                         <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                        {formatDate(repair.out_time)}
+                        {formatDate(entry.out_time)}
                       </div>
                     ) : (
                       "Pending"
@@ -183,18 +187,18 @@ export default function RepairHistory() {
                   <TableCell>
                     <div className="flex items-center">
                       <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                      {calculateDuration(repair.repair_time, repair.out_time)}
+                      {calculateDuration(entry.entry_time, entry.out_time)}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {repair.issued_parts.map((part, index) => (
+                      {entry.issued_parts.map((part, index) => (
                         <Badge
                           key={index}
                           variant="outline"
                           className="bg-accent/10 text-accent"
                         >
-                          {part}
+                          {part.item_no} x{part.quantity}
                         </Badge>
                       ))}
                     </div>
@@ -203,12 +207,12 @@ export default function RepairHistory() {
                     <Badge
                       variant="outline"
                       className={
-                        repair.out_time
+                        entry.out_time
                           ? "bg-chart-1/10 text-chart-1 border-chart-1/20"
                           : "bg-chart-3/10 text-chart-3 border-chart-3/20"
                       }
                     >
-                      {repair.out_time ? "Completed" : "In Progress"}
+                      {entry.out_time ? "Completed" : "In Progress"}
                     </Badge>
                   </TableCell>
                 </TableRow>
