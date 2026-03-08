@@ -21,12 +21,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { X, Plus } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { addEntry } from "@/services/entries";
-import type { IssuedPart } from "@/types";
 import { useAuth } from "@/context/auth-context";
 
 const CATEGORIES = ["Vehicle", "Gun", "Equipment", "Weapon"] as const;
@@ -45,35 +42,11 @@ export default function OutStationRepair() {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [issuedParts, setIssuedParts] = useState<IssuedPart[]>([]);
-  const [partInput, setPartInput] = useState("");
-  const [partQty, setPartQty] = useState(1);
 
   const set = (field: keyof typeof EMPTY_FORM, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const hasCategory = !!form.asset_category;
-
-  // ── Issued parts helpers ──────────────────────────────────────────────────
-
-  const addPart = () => {
-    const item_no = partInput.trim();
-    if (!item_no || partQty < 1) return;
-    setIssuedParts((prev) => {
-      const existing = prev.find((p) => p.item_no === item_no);
-      if (existing) {
-        return prev.map((p) =>
-          p.item_no === item_no ? { ...p, quantity: p.quantity + partQty } : p,
-        );
-      }
-      return [...prev, { item_no, quantity: partQty }];
-    });
-    setPartInput("");
-    setPartQty(1);
-  };
-
-  const removePart = (item_no: string) =>
-    setIssuedParts((prev) => prev.filter((p) => p.item_no !== item_no));
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
@@ -90,7 +63,7 @@ export default function OutStationRepair() {
         entry_time: new Date().toISOString(),
         out_time: null,
         status: "In Progress",
-        issued_parts: issuedParts,
+        issued_parts: [],
         notes: form.notes,
         div: form.div || undefined,
         entered_by: profile?.name ?? "",
@@ -99,7 +72,6 @@ export default function OutStationRepair() {
         description: `${form.asset_name} (${form.asset_no}) is now In Progress`,
       });
       setForm(EMPTY_FORM);
-      setIssuedParts([]);
     } catch (err) {
       toastError("Failed to create entry", err);
     } finally {
@@ -208,54 +180,6 @@ export default function OutStationRepair() {
               </div>
             </div>
 
-            {/* Issued Parts */}
-            <div className="space-y-2">
-              <Label>Issued Parts</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter card no."
-                  value={partInput}
-                  onChange={(e) => setPartInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addPart();
-                    }
-                  }}
-                />
-                <Input
-                  type="number"
-                  min={1}
-                  className="w-24"
-                  value={partQty}
-                  onChange={(e) => setPartQty(Number(e.target.value))}
-                />
-                <Button type="button" variant="outline" onClick={addPart}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              {issuedParts.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {issuedParts.map((part) => (
-                    <Badge
-                      key={part.item_no}
-                      variant="secondary"
-                      className="flex items-center gap-1"
-                    >
-                      {part.item_no} ×{part.quantity}
-                      <button
-                        type="button"
-                        onClick={() => removePart(part.item_no)}
-                        className="ml-1 rounded-full hover:text-destructive"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Notes */}
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
@@ -284,7 +208,6 @@ export default function OutStationRepair() {
               type="button"
               onClick={() => {
                 setForm(EMPTY_FORM);
-                setIssuedParts([]);
               }}
             >
               Cancel

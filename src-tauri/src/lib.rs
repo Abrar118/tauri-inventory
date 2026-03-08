@@ -1,9 +1,12 @@
 pub mod models;
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
+use printpdf::{BuiltinFont, Mm, PdfDocument};
 use rxing::{BarcodeFormat, MultiFormatWriter, Writer};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
+use std::io::BufWriter;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -128,6 +131,98 @@ fn print_barcodes_html(html: String) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug, Deserialize)]
+struct PdfSectionPayload {
+    title: String,
+    columns: Vec<String>,
+    rows: Vec<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PdfReportPayload {
+    filename: String,
+    title: String,
+    filter_summary: String,
+    sections: Vec<PdfSectionPayload>,
+}
+
+/// Generate a report PDF directly from structured table payload and save it to
+/// Downloads directory. Returns full saved path.
+#[tauri::command]
+fn generate_report_pdf(payload: PdfReportPayload) -> Result<String, String> {
+    let (doc, page1, layer1) = PdfDocument::new(&payload.title, Mm(297.0), Mm(210.0), "Layer 1");
+    let font = doc
+        .add_builtin_font(BuiltinFont::Helvetica)
+        .map_err(|e| e.to_string())?;
+    let bold_font = doc
+        .add_builtin_font(BuiltinFont::HelveticaBold)
+        .map_err(|e| e.to_string())?;
+
+    let mut current_layer = doc.get_page(page1).get_layer(layer1);
+    let mut y = 198.0f64;
+    let left_margin = 12.0f64;
+
+    let mut draw_line = |text: &str, size: f64, bold: bool| {
+        if y < 15.0 {
+            let (new_page, new_layer) = doc.add_page(Mm(297.0), Mm(210.0), "Layer");
+            current_layer = doc.get_page(new_page).get_layer(new_layer);
+            y = 198.0;
+        }
+        let active_font = if bold { &bold_font } else { &font };
+        current_layer.use_text(text, size as f32, Mm(left_margin as f32), Mm(y as f32), active_font);
+        y -= if size >= 12.0 { 8.0 } else { 6.0 };
+    };
+
+    draw_line(&payload.title, 14.0, true);
+    draw_line(&format!("Filter: {}", payload.filter_summary), 10.0, false);
+    draw_line(" ", 8.0, false);
+
+    for section in payload.sections {
+        draw_line(&section.title, 11.0, true);
+        if !section.columns.is_empty() {
+            draw_line(&section.columns.join(" | "), 9.0, true);
+        }
+        for row in section.rows {
+            let row_text = row.join(" | ");
+            if row_text.chars().count() > 180 {
+                let truncated = format!("{}...", &row_text.chars().take(177).collect::<String>());
+                draw_line(&truncated, 8.0, false);
+            } else {
+                draw_line(&row_text, 8.0, false);
+            }
+        }
+        draw_line(" ", 8.0, false);
+    }
+
+    let downloads = dirs::download_dir()
+        .ok_or_else(|| "Could not locate Downloads directory".to_string())?;
+
+    let safe_filename: String = payload
+        .filename
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+
+    let filename = if safe_filename.ends_with(".pdf") {
+        safe_filename
+    } else {
+        format!("{safe_filename}.pdf")
+    };
+
+    let path = downloads.join(filename);
+    let file = std::fs::File::create(&path).map_err(|e| e.to_string())?;
+    let mut writer = BufWriter::new(file);
+    doc.save(&mut writer).map_err(|e| e.to_string())?;
+
+    Ok(path.to_string_lossy().to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -136,7 +231,8 @@ pub fn run() {
             greet,
             generate_barcode,
             save_barcode_png,
-            print_barcodes_html
+            print_barcodes_html,
+            generate_report_pdf
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

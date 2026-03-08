@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,14 +18,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import RichTextEditor from "@/components/rich-text-editor";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
-import { addItem, getItems } from "@/services/items";
 import { addDemand, deleteDemand, getDemands, updateDemand } from "@/services/demands";
-import type { Demand, Item } from "@/types";
+import type { Demand } from "@/types";
 import { CheckCircle2, Plus, Trash2 } from "lucide-react";
 
 const EMPTY_FORM = {
@@ -35,14 +41,8 @@ const EMPTY_FORM = {
   quantity: 1,
   vehicle_type: "",
   returnable: false,
-  rack_no: "",
   description: "",
   image: "",
-  status: "pending" as Demand["status"],
-  unservicable_count: 0,
-  lost_count: 0,
-  blr_count: 0,
-  ber_count: 0,
   demand_request: "<p>Requested due to operational need.</p>",
 };
 
@@ -50,66 +50,70 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function RichTextEditor({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const editorRef = useRef<HTMLDivElement>(null);
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
-  useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value;
+function sanitizeRichHtml(rawHtml: string): string {
+  if (!rawHtml) return "";
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(rawHtml, "text/html");
+  const allowedTags = new Set(["P", "BR", "STRONG", "B", "EM", "I", "U", "UL", "OL", "LI", "A"]);
+
+  const walk = (node: Node) => {
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const el = node as HTMLElement;
+
+    if (!allowedTags.has(el.tagName)) {
+      const parent = el.parentNode;
+      if (!parent) return;
+      while (el.firstChild) parent.insertBefore(el.firstChild, el);
+      parent.removeChild(el);
+      return;
     }
-  }, [value]);
 
-  const applyFormat = (command: string) => {
-    editorRef.current?.focus();
-    document.execCommand(command);
-    onChange(editorRef.current?.innerHTML ?? "");
+    for (const attr of [...el.attributes]) {
+      const attrName = attr.name.toLowerCase();
+      if (attrName.startsWith("on") || attrName === "style" || attrName === "class") {
+        el.removeAttribute(attr.name);
+      }
+    }
+
+    if (el.tagName === "A") {
+      const href = (el.getAttribute("href") || "").trim();
+      const allowedHref = href.startsWith("http://") || href.startsWith("https://") || href.startsWith("mailto:");
+      if (!allowedHref) {
+        el.removeAttribute("href");
+      } else {
+        el.setAttribute("target", "_blank");
+        el.setAttribute("rel", "noopener noreferrer");
+      }
+    }
   };
 
-  return (
-    <div className="rounded-md border p-2 space-y-2">
-      <div className="flex gap-2">
-        <Button type="button" size="sm" variant="outline" onClick={() => applyFormat("bold")}>
-          Bold
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={() => applyFormat("italic")}>
-          Italic
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={() => applyFormat("underline")}>
-          Underline
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={() => applyFormat("insertUnorderedList")}>
-          Bullet List
-        </Button>
-      </div>
-      <div
-        ref={editorRef}
-        contentEditable
-        className="min-h-28 rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        onInput={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
-      />
-    </div>
-  );
+  const elements = [...doc.body.querySelectorAll("*")];
+  elements.forEach((el) => walk(el));
+  return doc.body.innerHTML;
 }
 
 export default function Demands() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [demands, setDemands] = useState<Demand[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [detailsDemand, setDetailsDemand] = useState<Demand | null>(null);
 
   const loadData = () => {
     setLoading(true);
-    Promise.all([getDemands(), getItems()])
-      .then(([d, i]) => {
+    getDemands()
+      .then((d) => {
         setDemands(d);
-        setItems(i);
       })
       .catch((err) => toastError("Failed to load demands", err))
       .finally(() => setLoading(false));
@@ -118,11 +122,6 @@ export default function Demands() {
   useEffect(() => {
     loadData();
   }, []);
-
-  const existingItemNos = useMemo(
-    () => new Set(items.map((i) => i.item_no.trim().toLowerCase())),
-    [items],
-  );
 
   const set = <K extends keyof typeof form>(field: K, value: (typeof form)[K]) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -138,14 +137,14 @@ export default function Demands() {
         quantity: Number(form.quantity),
         vehicle_type: form.vehicle_type.trim() || null,
         returnable: form.returnable,
-        rack_no: form.rack_no.trim(),
+        rack_no: "",
         description: form.description.trim(),
         image: form.image.trim() || null,
-        status: form.status,
-        unservicable_count: Number(form.unservicable_count),
-        lost_count: Number(form.lost_count),
-        blr_count: Number(form.blr_count),
-        ber_count: Number(form.ber_count),
+        status: "pending",
+        unservicable_count: 0,
+        lost_count: 0,
+        blr_count: 0,
+        ber_count: 0,
         demand_request: form.demand_request,
       });
       goeyToast.success("Demand item added");
@@ -158,39 +157,6 @@ export default function Demands() {
     }
   };
 
-  const handleAddToInventory = async (demand: Demand) => {
-    if (!demand.id) return;
-    const key = demand.item_no.trim().toLowerCase();
-    if (existingItemNos.has(key)) {
-      goeyToast.error("Item already exists in inventory", {
-        description: `${demand.item_no} already exists.`,
-      });
-      return;
-    }
-
-    try {
-      await addItem({
-        item_no: demand.item_no,
-        name: demand.name,
-        type: demand.type,
-        quantity: demand.quantity,
-        vehicle_type: demand.vehicle_type,
-        returnable: demand.returnable,
-        rack_no: demand.rack_no,
-        description: demand.description,
-        image: demand.image,
-      });
-      await updateDemand(demand.id, {
-        fulfilled: true,
-        fulfilled_at: new Date().toISOString(),
-      });
-      goeyToast.success("Demand moved to inventory");
-      loadData();
-    } catch (err) {
-      toastError("Failed to add demand item to inventory", err);
-    }
-  };
-
   const handleDelete = async (id: string) => {
     try {
       await deleteDemand(id);
@@ -198,6 +164,16 @@ export default function Demands() {
       goeyToast.success("Demand deleted");
     } catch (err) {
       toastError("Failed to delete demand", err);
+    }
+  };
+
+  const handleMarkActive = async (id: string) => {
+    try {
+      await updateDemand(id, { status: "active" });
+      setDemands((prev) => prev.map((d) => (d.id === id ? { ...d, status: "active" } : d)));
+      goeyToast.success("Demand marked active");
+    } catch (err) {
+      toastError("Failed to mark demand active", err);
     }
   };
 
@@ -259,36 +235,12 @@ export default function Demands() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Rack No.</Label>
-                      <Input value={form.rack_no} onChange={(e) => set("rack_no", e.target.value)} required />
-                    </div>
-                    <div className="space-y-2">
                       <Label>Image URL</Label>
                       <Input value={form.image} onChange={(e) => set("image", e.target.value)} placeholder="Optional" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Status</Label>
-                      <Input value={form.status} onChange={(e) => set("status", e.target.value as Demand["status"])} required />
                     </div>
                     <div className="flex items-center gap-2 pt-8">
                       <Switch checked={form.returnable} onCheckedChange={(v) => set("returnable", v)} id="demand-returnable" />
                       <Label htmlFor="demand-returnable">Returnable</Label>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>BLR Count</Label>
-                      <Input type="number" min={0} value={form.blr_count} onChange={(e) => set("blr_count", Math.max(0, Number(e.target.value)))} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>BER Count</Label>
-                      <Input type="number" min={0} value={form.ber_count} onChange={(e) => set("ber_count", Math.max(0, Number(e.target.value)))} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Unserviceable Count</Label>
-                      <Input type="number" min={0} value={form.unservicable_count} onChange={(e) => set("unservicable_count", Math.max(0, Number(e.target.value)))} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Lost Count</Label>
-                      <Input type="number" min={0} value={form.lost_count} onChange={(e) => set("lost_count", Math.max(0, Number(e.target.value)))} required />
                     </div>
                   </div>
 
@@ -312,7 +264,7 @@ export default function Demands() {
 
             <TabsContent value="list">
               <div className="space-y-4">
-                <div>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <h3 className="text-lg font-semibold">Demanded Items</h3>
                   <p className="text-sm text-muted-foreground">
                     {loading ? "Loading..." : `${demands.length} demand item(s)`}
@@ -327,14 +279,8 @@ export default function Demands() {
                       <TableHead>Qty</TableHead>
                       <TableHead>Vehicle Type</TableHead>
                       <TableHead>Returnable</TableHead>
-                      <TableHead>Rack</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Image</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Unsvc</TableHead>
-                      <TableHead>Lost</TableHead>
-                      <TableHead>BLR</TableHead>
-                      <TableHead>BER</TableHead>
                       <TableHead>Demand Request</TableHead>
                       <TableHead>Demand State</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -342,44 +288,51 @@ export default function Demands() {
                   </TableHeader>
                   <TableBody>
                     {demands.map((d) => (
-                      <TableRow key={d.id}>
+                      <TableRow
+                        key={d.id}
+                        className="cursor-pointer"
+                        onClick={() => setDetailsDemand(d)}
+                      >
                         <TableCell className="font-mono">{d.item_no}</TableCell>
                         <TableCell>{d.name}</TableCell>
                         <TableCell>{d.type}</TableCell>
                         <TableCell>{d.quantity}</TableCell>
                         <TableCell>{d.vehicle_type ?? "—"}</TableCell>
                         <TableCell>{d.returnable ? "Yes" : "No"}</TableCell>
-                        <TableCell>{d.rack_no}</TableCell>
                         <TableCell className="max-w-[200px] truncate" title={d.description}>
                           {d.description || "—"}
                         </TableCell>
                         <TableCell className="max-w-[160px] truncate" title={d.image ?? ""}>
                           {d.image ?? "—"}
                         </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{d.status}</Badge>
-                        </TableCell>
-                        <TableCell>{d.unservicable_count}</TableCell>
-                        <TableCell>{d.lost_count}</TableCell>
-                        <TableCell>{d.blr_count}</TableCell>
-                        <TableCell>{d.ber_count}</TableCell>
                         <TableCell className="max-w-[300px] truncate" title={stripHtml(d.demand_request)}>
                           {stripHtml(d.demand_request)}
                         </TableCell>
                         <TableCell>
                           {d.fulfilled ? (
                             <Badge className="bg-green-500/15 text-green-700 border-0">Added</Badge>
+                          ) : d.status === "active" ? (
+                            <Badge className="bg-blue-500/15 text-blue-700 border-0">Active</Badge>
                           ) : (
                             <Badge variant="outline">Pending</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="inline-flex items-center gap-2">
-                            <Button size="sm" onClick={() => handleAddToInventory(d)} disabled={d.fulfilled}>
-                              <CheckCircle2 className="mr-1 h-4 w-4" />
-                              Add to Items
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => d.id && handleMarkActive(d.id)}
+                              disabled={d.fulfilled || d.status === "active"}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="outline" className="text-destructive" onClick={() => d.id && handleDelete(d.id)}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive"
+                              onClick={() => d.id && handleDelete(d.id)}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -393,6 +346,46 @@ export default function Demands() {
           </Tabs>
         </CardContent>
       </Card>
+
+      <Dialog open={!!detailsDemand} onOpenChange={(open) => !open && setDetailsDemand(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Demand Details {detailsDemand ? `- ${detailsDemand.item_no}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+
+          {detailsDemand && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Description
+                </p>
+                <div
+                  className="mt-1 rounded-md border bg-muted/20 p-3 text-sm leading-relaxed [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1"
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeRichHtml(
+                      `<p>${escapeHtml(detailsDemand.description?.trim() || "No description provided.")}</p>`,
+                    ),
+                  }}
+                />
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Demand Request
+                </p>
+                <div
+                  className="mt-1 rounded-md border bg-muted/20 p-3 text-sm leading-relaxed [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1"
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeRichHtml(detailsDemand.demand_request),
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
