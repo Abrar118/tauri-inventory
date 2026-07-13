@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Loader2 } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { updateItem } from "@/services/items";
@@ -84,9 +85,9 @@ export function EditItemModal({
         if (!loading) onOpenChange(o);
       }}
     >
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit Item</DialogTitle>
+          <DialogTitle className="text-base font-semibold">Edit Item</DialogTitle>
           <DialogDescription>
             Changes will require re-approval.
           </DialogDescription>
@@ -97,6 +98,7 @@ export function EditItemModal({
               <Label htmlFor="edit-item-no">Card No.</Label>
               <Input
                 id="edit-item-no"
+                className="font-mono"
                 value={form.item_no}
                 onChange={(e) => set("item_no", e.target.value)}
                 required
@@ -148,13 +150,15 @@ export function EditItemModal({
                 onChange={(e) => set("vehicle_type", e.target.value)}
               />
             </div>
-            <div className="flex items-center gap-2 pt-6">
-              <Switch
-                id="edit-item-returnable"
-                checked={form.returnable}
-                onCheckedChange={(v) => set("returnable", v)}
-              />
-              <Label htmlFor="edit-item-returnable">Returnable</Label>
+            <div className="flex items-end pb-2">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="edit-item-returnable"
+                  checked={form.returnable}
+                  onCheckedChange={(v) => set("returnable", v)}
+                />
+                <Label htmlFor="edit-item-returnable">Returnable</Label>
+              </div>
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="edit-item-desc">Description</Label>
@@ -176,6 +180,7 @@ export function EditItemModal({
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               {loading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>

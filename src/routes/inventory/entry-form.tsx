@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ClipboardList, Loader2, Search } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { addEntry, getEntries } from "@/services/entries";
@@ -97,11 +99,11 @@ function AutocompleteInput({
         }}
       />
       {open && filtered.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+        <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
           {filtered.map((s) => (
             <li
               key={s}
-              className="cursor-pointer px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+              className="cursor-pointer rounded-sm px-2.5 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
               onMouseDown={(e) => {
                 e.preventDefault();
                 onChange(s);
@@ -114,6 +116,23 @@ function AutocompleteInput({
         </ul>
       )}
     </div>
+  );
+}
+
+function EntryStatusPill({ status }: { status: string }) {
+  const tint =
+    status === "Completed"
+      ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+      : status === "In Progress"
+        ? "border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+        : "border-transparent bg-muted text-muted-foreground";
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${tint}`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {status}
+    </span>
   );
 }
 
@@ -283,12 +302,14 @@ export default function EntryForm() {
     );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Entry</h2>
-        <p className="text-muted-foreground">
-          Record a new repair entry or review past entries
-        </p>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Repair Entry</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Record a new workshop repair entry or review past entries.
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue="new-entry">
@@ -298,122 +319,143 @@ export default function EntryForm() {
         </TabsList>
 
         <TabsContent value="new-entry">
-          <Card>
+          <Card className="max-w-3xl">
             <CardHeader>
-              <CardTitle>Entry Details</CardTitle>
+              <CardTitle className="text-base">Entry Details</CardTitle>
               <CardDescription>
-                Select category, then fill unit, type and name — Catalog No. fills
-                from the catalog
+                Select a category, then unit, type and name — the catalog
+                number fills in automatically on a unique match.
               </CardDescription>
             </CardHeader>
             <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Category</Label>
-                    <Select value={form.asset_category} onValueChange={handleCategoryChange} required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CATEGORIES.map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+              <CardContent className="space-y-5">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium">Asset identification</h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Suggestions come from active catalog records.
+                    </p>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Unit</Label>
-                    <AutocompleteInput
-                      value={form.asset_unit}
-                      onChange={handleUnitChange}
-                      suggestions={unitSuggestions}
-                      placeholder={form.asset_category ? "Start typing or select…" : "Select a category first"}
-                      disabled={!form.asset_category}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Type</Label>
-                    <AutocompleteInput
-                      value={form.asset_type}
-                      onChange={handleTypeChange}
-                      suggestions={typeSuggestions}
-                      placeholder={form.asset_category ? "Start typing or select…" : "Select a category first"}
-                      disabled={!form.asset_category}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Name</Label>
-                    <AutocompleteInput
-                      value={form.asset_name}
-                      onChange={handleNameChange}
-                      suggestions={nameSuggestions}
-                      placeholder={form.asset_type ? "Start typing or select…" : "Select a type first"}
-                      disabled={!form.asset_type}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>
-                      Catalog No.
-                      <span className="ml-1 text-xs text-muted-foreground">
-                        {matchingNos.length > 1 ? `(${matchingNos.length} matches)` : "(auto-filled)"}
-                      </span>
-                    </Label>
-                    {matchingNos.length > 1 ? (
-                      <Select value={form.asset_no} onValueChange={(v) => set("asset_no", v)} required>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select catalog number" />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Category</Label>
+                      <Select value={form.asset_category} onValueChange={handleCategoryChange} required>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
-                          {matchingNos.map((no) => (
-                            <SelectItem key={no} value={no}>
-                              {no}
+                          {CATEGORIES.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    ) : (
-                      <Input
-                        placeholder={form.asset_name ? "No catalog match — enter manually" : "Fill fields above first"}
-                        value={form.asset_no}
-                        onChange={(e) => set("asset_no", e.target.value)}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Unit</Label>
+                      <AutocompleteInput
+                        value={form.asset_unit}
+                        onChange={handleUnitChange}
+                        suggestions={unitSuggestions}
+                        placeholder={form.asset_category ? "Start typing or select…" : "Select a category first"}
+                        disabled={!form.asset_category}
                         required
                       />
-                    )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Type</Label>
+                      <AutocompleteInput
+                        value={form.asset_type}
+                        onChange={handleTypeChange}
+                        suggestions={typeSuggestions}
+                        placeholder={form.asset_category ? "Start typing or select…" : "Select a category first"}
+                        disabled={!form.asset_category}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Name</Label>
+                      <AutocompleteInput
+                        value={form.asset_name}
+                        onChange={handleNameChange}
+                        suggestions={nameSuggestions}
+                        placeholder={form.asset_type ? "Start typing or select…" : "Select a type first"}
+                        disabled={!form.asset_type}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>
+                        Catalog No.
+                        <span className="font-normal text-xs text-muted-foreground">
+                          {matchingNos.length > 1 ? `${matchingNos.length} matches` : "auto-filled"}
+                        </span>
+                      </Label>
+                      {matchingNos.length > 1 ? (
+                        <Select value={form.asset_no} onValueChange={(v) => set("asset_no", v)} required>
+                          <SelectTrigger className="w-full font-mono">
+                            <SelectValue placeholder="Select catalog number" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {matchingNos.map((no) => (
+                              <SelectItem key={no} value={no} className="font-mono">
+                                {no}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          className="font-mono"
+                          placeholder={form.asset_name ? "No catalog match — enter manually" : "Fill fields above first"}
+                          value={form.asset_no}
+                          onChange={(e) => set("asset_no", e.target.value)}
+                          required
+                        />
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Div</Label>
+                      <Input
+                        placeholder="Enter division"
+                        value={form.div}
+                        onChange={(e) => set("div", e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium">Work details</h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Optional context for the workshop team.
+                    </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Div</Label>
-                    <Input
-                      placeholder="Enter division"
-                      value={form.div}
-                      onChange={(e) => set("div", e.target.value)}
-                      required
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      placeholder="Describe the issue or work required"
+                      rows={4}
+                      value={form.notes}
+                      onChange={(e) => set("notes", e.target.value)}
                     />
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea
-                    id="notes"
-                    placeholder="Describe the issue or work required"
-                    rows={4}
-                    value={form.notes}
-                    onChange={(e) => set("notes", e.target.value)}
-                  />
-                </div>
               </CardContent>
-              <CardFooter className="flex justify-between border-t pt-6">
+              <CardFooter className="flex justify-end gap-2 border-t pt-6">
                 <Button
                   variant="outline"
                   type="button"
@@ -422,28 +464,46 @@ export default function EntryForm() {
                     setMatchingNos([]);
                   }}
                 >
-                  Cancel
+                  Reset
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading ? "Saving..." : "Create Entry"}
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {loading ? "Saving…" : "Create Entry"}
                 </Button>
               </CardFooter>
             </form>
           </Card>
         </TabsContent>
 
-        <TabsContent value="entry-history">
-          <Card>
-            <CardHeader>
-              <CardTitle>Entry History</CardTitle>
-              <CardDescription>All recorded entries</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
+        <TabsContent value="entry-history" className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full max-w-xs">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search by asset no, name or type..."
+                type="search"
+                placeholder="Search asset no, name or type…"
+                className="h-8 pl-8"
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
               />
+            </div>
+            <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+              {filteredEntries.length} of {entries.length} entries
+            </span>
+          </div>
+
+          {filteredEntries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-14 text-center">
+              <ClipboardList className="h-8 w-8 text-muted-foreground/50" />
+              <p className="mt-3 text-sm font-medium">No entries found</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {entries.length === 0
+                  ? "Entries you create will appear here."
+                  : "Try a different search term."}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -459,21 +519,25 @@ export default function EntryForm() {
                 <TableBody>
                   {filteredEntries.map((entry) => (
                     <TableRow key={entry.id}>
-                      <TableCell className="font-mono">{entry.asset_no}</TableCell>
-                      <TableCell>{entry.asset_name}</TableCell>
-                      <TableCell>{entry.asset_type}</TableCell>
-                      <TableCell>{new Date(entry.entry_time).toLocaleString()}</TableCell>
-                      <TableCell>
-                        {entry.out_time ? new Date(entry.out_time).toLocaleString() : "In Progress"}
+                      <TableCell className="font-mono text-xs">{entry.asset_no}</TableCell>
+                      <TableCell className="font-medium">{entry.asset_name}</TableCell>
+                      <TableCell className="text-[13px] text-muted-foreground">{entry.asset_type}</TableCell>
+                      <TableCell className="whitespace-nowrap text-[13px] text-muted-foreground tabular-nums">
+                        {new Date(entry.entry_time).toLocaleString()}
                       </TableCell>
-                      <TableCell>{entry.status}</TableCell>
-                      <TableCell>{entry.entered_by || "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap text-[13px] text-muted-foreground tabular-nums">
+                        {entry.out_time ? new Date(entry.out_time).toLocaleString() : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <EntryStatusPill status={entry.status} />
+                      </TableCell>
+                      <TableCell className="text-[13px]">{entry.entered_by || "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

@@ -21,7 +21,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { UserPlus } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, UserPlus } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { createUser, ACCOUNT_TYPES } from "@/lib/auth";
@@ -107,106 +108,121 @@ export function AddEmployeeModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!loading) { setForm(EMPTY_FORM); onOpenChange(o); } }}>
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add Employee</DialogTitle>
+          <DialogTitle className="text-base font-semibold">
+            Add employee
+          </DialogTitle>
           <DialogDescription>
-            Enter the details of the new employee
+            Create a personnel record and the sign-in account for a new
+            employee.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="add-username">Username</Label>
-              <Input
-                id="add-username"
-                placeholder="Enter username"
-                value={form.username}
-                onChange={(e) => set("username", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-email">Email</Label>
-              <Input
-                id="add-email"
-                type="email"
-                placeholder="Enter email address"
-                value={form.email}
-                onChange={(e) => set("email", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-name">Full Name</Label>
-              <Input
-                id="add-name"
-                placeholder="Enter full name"
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-rank">Rank</Label>
-              <Input
-                id="add-rank"
-                placeholder="Enter rank"
-                value={form.rank}
-                onChange={(e) => set("rank", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-phone">Phone Number</Label>
-              <Input
-                id="add-phone"
-                placeholder="Enter phone number"
-                value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-ba-bjo">BA/BJO Number</Label>
-              <Input
-                id="add-ba-bjo"
-                placeholder="Enter BA/BJO number"
-                value={form.ba_bjo}
-                onChange={(e) => set("ba_bjo", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-account-type">Account Type</Label>
-              <Select
-                value={form.account_type}
-                onValueChange={(v) => set("account_type", v)}
-              >
-                <SelectTrigger id="add-account-type">
-                  <SelectValue placeholder="Select account type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACCOUNT_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-password">Initial Password</Label>
-              <Input
-                id="add-password"
-                type="password"
-                placeholder="Enter initial password"
-                value={form.password}
-                onChange={(e) => set("password", e.target.value)}
-                required
-              />
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">Personnel details</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="add-name">Full Name</Label>
+                <Input
+                  id="add-name"
+                  placeholder="Enter full name"
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-rank">Rank</Label>
+                <Input
+                  id="add-rank"
+                  placeholder="Enter rank"
+                  value={form.rank}
+                  onChange={(e) => set("rank", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-phone">Phone Number</Label>
+                <Input
+                  id="add-phone"
+                  placeholder="Enter phone number"
+                  value={form.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-ba-bjo">BA/BJO Number</Label>
+                <Input
+                  id="add-ba-bjo"
+                  placeholder="Enter BA/BJO number"
+                  value={form.ba_bjo}
+                  onChange={(e) => set("ba_bjo", e.target.value)}
+                  required
+                />
+              </div>
             </div>
           </div>
+
+          <Separator />
+
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">Account credentials</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="add-username">Username</Label>
+                <Input
+                  id="add-username"
+                  placeholder="Enter username"
+                  value={form.username}
+                  onChange={(e) => set("username", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-email">Email</Label>
+                <Input
+                  id="add-email"
+                  type="email"
+                  placeholder="Enter email address"
+                  value={form.email}
+                  onChange={(e) => set("email", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-account-type">Account Type</Label>
+                <Select
+                  value={form.account_type}
+                  onValueChange={(v) => set("account_type", v)}
+                >
+                  <SelectTrigger id="add-account-type" className="w-full">
+                    <SelectValue placeholder="Select account type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCOUNT_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-password">Initial Password</Label>
+                <Input
+                  id="add-password"
+                  type="password"
+                  placeholder="Enter initial password"
+                  value={form.password}
+                  onChange={(e) => set("password", e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -218,7 +234,10 @@ export function AddEmployeeModal({
             </Button>
             <Button type="submit" disabled={loading}>
               {loading ? (
-                "Adding..."
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding…
+                </>
               ) : (
                 <>
                   <UserPlus className="mr-2 h-4 w-4" />

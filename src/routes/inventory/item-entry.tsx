@@ -17,7 +17,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, Upload } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { addItem, getItems, updateItem } from "@/services/items";
@@ -106,7 +107,7 @@ const EMPTY_NEW_FORM = {
   is_lost: false,
 };
 
-export default function ItemEntry() {
+export default function ItemEntry({ embedded = false }: { embedded?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [form, setForm] = useState(EMPTY_NEW_FORM);
@@ -203,11 +204,17 @@ export default function ItemEntry() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Item Entry</h2>
-        <p className="text-muted-foreground">Create new items or add stock to existing ones</p>
-      </div>
+    <div className="space-y-5">
+      {!embedded && (
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Add Item</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Create new items or add stock to existing ones.
+            </p>
+          </div>
+        </div>
+      )}
 
       <Tabs defaultValue="new">
         <TabsList>
@@ -215,19 +222,22 @@ export default function ItemEntry() {
           <TabsTrigger value="existing">Add Existing Item</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="new">
-          <Card>
+        <TabsContent value="new" className="mt-4">
+          <Card className="max-w-3xl">
             <CardHeader>
-              <CardTitle>Item Details</CardTitle>
-              <CardDescription>Enter the details of the new item</CardDescription>
+              <CardTitle className="text-sm font-medium">Item details</CardTitle>
+              <CardDescription>
+                Identification, stock, and condition of the new item.
+              </CardDescription>
             </CardHeader>
             <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <CardContent className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="item-no">Card No.</Label>
                     <Input
                       id="item-no"
+                      className="font-mono"
                       placeholder="Enter card number"
                       value={form.item_no}
                       onChange={(e) => set("item_no", e.target.value)}
@@ -266,9 +276,29 @@ export default function ItemEntry() {
                       required
                     />
                   </div>
-                  <div className="space-y-2 pt-2">
-                    <Label className="text-sm font-medium">Condition</Label>
-                    <div className="flex gap-6">
+                </div>
+
+                <Separator />
+
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Condition &amp; storage</p>
+                  <p className="text-xs text-muted-foreground">
+                    Where the item lives and its current state.
+                  </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="rack-no">Rack Number</Label>
+                    <Input
+                      id="rack-no"
+                      placeholder="Enter rack number"
+                      value={form.rack_no}
+                      onChange={(e) => set("rack_no", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Condition</Label>
+                    <div className="flex h-9 items-center gap-6">
                       <div className="flex items-center gap-2">
                         <Checkbox
                           id="is_unservicable"
@@ -297,17 +327,7 @@ export default function ItemEntry() {
                       </div>
                     </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="rack-no">Rack Number</Label>
-                    <Input
-                      id="rack-no"
-                      placeholder="Enter rack number"
-                      value={form.rack_no}
-                      onChange={(e) => set("rack_no", e.target.value)}
-                    />
-                  </div>
-                  <div className="flex items-center space-x-2 pt-6">
+                  <div className="flex items-center gap-2 sm:col-span-2">
                     <Switch
                       id="returnable"
                       checked={form.returnable}
@@ -315,6 +335,15 @@ export default function ItemEntry() {
                     />
                     <Label htmlFor="returnable">Returnable Item</Label>
                   </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Details</p>
+                  <p className="text-xs text-muted-foreground">
+                    Optional description and reference image.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
@@ -327,37 +356,34 @@ export default function ItemEntry() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Item Image</Label>
-                  <div className="flex items-center justify-center w-full">
-                    <label
-                      htmlFor="image-upload"
-                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50"
-                    >
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <Upload className="w-8 h-8 mb-2 text-muted-foreground" />
-                        <p className="mb-2 text-sm text-muted-foreground">
-                          <span className="font-semibold">Click to upload</span> or
-                          drag and drop
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          PNG, JPG or JPEG (MAX. 2MB)
-                        </p>
-                      </div>
-                      <input
-                        id="image-upload"
-                        type="file"
-                        className="hidden"
-                        accept="image/*"
-                      />
-                    </label>
-                  </div>
+                  <Label htmlFor="image-upload">Item Image</Label>
+                  <label
+                    htmlFor="image-upload"
+                    className="flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 transition-colors hover:bg-muted/50"
+                  >
+                    <Upload className="h-6 w-6 text-muted-foreground/60" />
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">Click to upload</span>{" "}
+                      or drag and drop
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      PNG, JPG or JPEG (max 2 MB)
+                    </p>
+                    <input
+                      id="image-upload"
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                    />
+                  </label>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-between border-t pt-6">
+              <CardFooter className="justify-end gap-2 border-t">
                 <Button variant="outline" type="button" onClick={() => setForm(EMPTY_NEW_FORM)}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading}>
+                  {loading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                   {loading ? "Saving..." : "Save Item"}
                 </Button>
               </CardFooter>
@@ -365,16 +391,18 @@ export default function ItemEntry() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="existing">
-          <Card>
+        <TabsContent value="existing" className="mt-4">
+          <Card className="max-w-3xl">
             <CardHeader>
-              <CardTitle>Add Quantity to Existing Item</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Add quantity to existing item
+              </CardTitle>
               <CardDescription>
                 Select an existing item by card no or name, then add stock quantity.
               </CardDescription>
             </CardHeader>
             <form onSubmit={handleAddExistingItem}>
-              <CardContent className="grid gap-4 md:grid-cols-3">
+              <CardContent className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Card No.</Label>
                   <AutocompleteInput
@@ -406,8 +434,9 @@ export default function ItemEntry() {
                   />
                 </div>
               </CardContent>
-              <CardFooter className="border-t pt-6">
+              <CardFooter className="justify-end border-t">
                 <Button type="submit" disabled={existingSubmitting}>
+                  {existingSubmitting && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                   {existingSubmitting ? "Updating..." : "Add Quantity"}
                 </Button>
               </CardFooter>

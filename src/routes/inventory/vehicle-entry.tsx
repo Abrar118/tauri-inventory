@@ -22,7 +22,8 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Upload } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, Upload } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { addLoad, getLoads } from "@/services/loads";
@@ -91,11 +92,11 @@ function AutocompleteInput({
         }}
       />
       {open && filtered.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+        <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
           {filtered.map((s) => (
             <li
               key={s}
-              className="cursor-pointer px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+              className="cursor-pointer px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
               onMouseDown={(e) => {
                 e.preventDefault();
                 onChange(s);
@@ -186,22 +187,25 @@ export default function VehicleEntry() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Add Load</h2>
-        <p className="text-muted-foreground">
-          Add a new load (vehicle, gun, equipment, weapon)
-        </p>
-      </div>
-
+    <div className="max-w-3xl space-y-5">
       <Card>
         <CardHeader>
-          <CardTitle>Load Details</CardTitle>
-          <CardDescription>Enter the details of the new load</CardDescription>
+          <CardTitle className="text-base font-semibold">
+            Load details
+          </CardTitle>
+          <CardDescription>
+            New loads are created as pending and require approval before use.
+          </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <CardContent className="space-y-5">
+            <div>
+              <h3 className="text-sm font-medium">Identification</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                What the load is and where it belongs.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {/* Category */}
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
@@ -252,6 +256,7 @@ export default function VehicleEntry() {
                 <Label htmlFor="catalog-no">Catalog No.</Label>
                 <Input
                   id="catalog-no"
+                  className="font-mono"
                   placeholder="Enter catalog number"
                   value={form.catalog_no}
                   onChange={(e) => set("catalog_no", e.target.value)}
@@ -277,12 +282,22 @@ export default function VehicleEntry() {
                 <Input
                   id="quantity"
                   type="number"
+                  className="tabular-nums"
                   min={1}
                   value={form.quantity}
                   onChange={(e) => set("quantity", Math.max(1, Number(e.target.value)))}
                   required
                 />
               </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <h3 className="text-sm font-medium">Additional details</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Optional notes and a reference photo.
+              </p>
             </div>
 
             {/* Description */}
@@ -299,41 +314,41 @@ export default function VehicleEntry() {
 
             {/* Image */}
             <div className="space-y-2">
-              <Label>Load Image</Label>
-              <div className="flex items-center justify-center w-full">
-                <label
-                  htmlFor="asset-image-upload"
-                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50"
-                >
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-8 h-8 mb-2 text-muted-foreground" />
-                    <p className="mb-2 text-sm text-muted-foreground">
-                      <span className="font-semibold">Click to upload</span> or
-                      drag and drop
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      PNG, JPG or JPEG (MAX. 2MB)
-                    </p>
-                  </div>
-                  <input
-                    id="asset-image-upload"
-                    type="file"
-                    className="hidden"
-                    accept="image/*"
-                  />
-                </label>
-              </div>
+              <Label htmlFor="asset-image-upload">Load Image</Label>
+              <label
+                htmlFor="asset-image-upload"
+                className="flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 transition-colors hover:bg-muted/50"
+              >
+                <Upload className="h-6 w-6 text-muted-foreground/70" />
+                <p className="mt-2 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    Click to upload
+                  </span>{" "}
+                  or drag and drop
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  PNG, JPG or JPEG (max. 2MB)
+                </p>
+                <input
+                  id="asset-image-upload"
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                />
+              </label>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-between border-t pt-6">
+          <CardFooter className="flex justify-end gap-2 border-t pt-6">
             <Button
               variant="outline"
               type="button"
+              disabled={loading}
               onClick={() => setForm(EMPTY_FORM)}
             >
-              Cancel
+              Reset
             </Button>
             <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               {loading ? "Saving..." : "Save Load"}
             </Button>
           </CardFooter>

@@ -2,12 +2,8 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,6 +17,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -30,9 +27,10 @@ import { Textarea } from "@/components/ui/textarea";
 import RichTextEditor from "@/components/rich-text-editor";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { addDemand, deleteDemand, getDemands, updateDemand } from "@/services/demands";
 import type { Demand } from "@/types";
-import { CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, Inbox, Loader2, Plus, Trash2 } from "lucide-react";
 
 const EMPTY_FORM = {
   item_no: "",
@@ -102,6 +100,23 @@ function sanitizeRichHtml(rawHtml: string): string {
   return doc.body.innerHTML;
 }
 
+const PILL_TINTS = {
+  emerald: "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  amber: "border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  sky: "border-sky-500/25 bg-sky-500/10 text-sky-600 dark:text-sky-400",
+} as const;
+
+function StatusPill({ tint, label }: { tint: keyof typeof PILL_TINTS; label: string }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${PILL_TINTS[tint]}`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {label}
+    </span>
+  );
+}
+
 export default function Demands() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [demands, setDemands] = useState<Demand[]>([]);
@@ -157,6 +172,8 @@ export default function Demands() {
     }
   };
 
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
   const handleDelete = async (id: string) => {
     try {
       await deleteDemand(id);
@@ -178,160 +195,242 @@ export default function Demands() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Demands</h2>
-        <p className="text-muted-foreground">
-          Manage requested items and push them to inventory with one click.
-        </p>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Demands</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Raise demand requests for items and push them to inventory once fulfilled.
+          </p>
+        </div>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <Tabs defaultValue="form">
-            <TabsList>
-              <TabsTrigger value="form">Demand Form</TabsTrigger>
-              <TabsTrigger value="list">Demand List</TabsTrigger>
-            </TabsList>
+      <Tabs defaultValue="form">
+        <TabsList>
+          <TabsTrigger value="form">Demand Form</TabsTrigger>
+          <TabsTrigger value="list">Demand List</TabsTrigger>
+        </TabsList>
 
-            <TabsContent value="form">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold">Create Demand Item</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Includes all item fields plus a rich-text demand request.
-                  </p>
-                </div>
-                <form onSubmit={handleCreateDemand} className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label>Card No.</Label>
-                      <Input value={form.item_no} onChange={(e) => set("item_no", e.target.value)} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Name</Label>
-                      <Input value={form.name} onChange={(e) => set("name", e.target.value)} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Type</Label>
-                      <Input value={form.type} onChange={(e) => set("type", e.target.value)} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Quantity</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={form.quantity}
-                        onChange={(e) => set("quantity", Math.max(1, Number(e.target.value)))}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Vehicle Type</Label>
-                      <Input
-                        value={form.vehicle_type}
-                        onChange={(e) => set("vehicle_type", e.target.value)}
-                        placeholder="Optional"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Image URL</Label>
-                      <Input value={form.image} onChange={(e) => set("image", e.target.value)} placeholder="Optional" />
-                    </div>
-                    <div className="flex items-center gap-2 pt-8">
-                      <Switch checked={form.returnable} onCheckedChange={(v) => set("returnable", v)} id="demand-returnable" />
-                      <Label htmlFor="demand-returnable">Returnable</Label>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Textarea rows={3} value={form.description} onChange={(e) => set("description", e.target.value)} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Demand Request (Rich Text)</Label>
-                    <RichTextEditor value={form.demand_request} onChange={(v) => set("demand_request", v)} />
-                  </div>
-
-                  <Button type="submit" disabled={submitting}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    {submitting ? "Saving..." : "Add Demand Item"}
-                  </Button>
-                </form>
+        <TabsContent value="form" className="mt-4">
+          <Card className="max-w-3xl">
+            <CardContent className="space-y-5">
+              <div>
+                <h3 className="text-sm font-medium">Create demand item</h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  All item fields plus a rich-text demand request.
+                </p>
               </div>
-            </TabsContent>
 
-            <TabsContent value="list">
-              <div className="space-y-4">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <h3 className="text-lg font-semibold">Demanded Items</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {loading ? "Loading..." : `${demands.length} demand item(s)`}
-                  </p>
+              <form onSubmit={handleCreateDemand} className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="demand-item-no">Card No.</Label>
+                    <Input
+                      id="demand-item-no"
+                      value={form.item_no}
+                      onChange={(e) => set("item_no", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="demand-name">Name</Label>
+                    <Input
+                      id="demand-name"
+                      value={form.name}
+                      onChange={(e) => set("name", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="demand-type">Type</Label>
+                    <Input
+                      id="demand-type"
+                      value={form.type}
+                      onChange={(e) => set("type", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="demand-quantity">Quantity</Label>
+                    <Input
+                      id="demand-quantity"
+                      type="number"
+                      min={1}
+                      value={form.quantity}
+                      onChange={(e) => set("quantity", Math.max(1, Number(e.target.value)))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="demand-vehicle-type">Vehicle Type</Label>
+                    <Input
+                      id="demand-vehicle-type"
+                      value={form.vehicle_type}
+                      onChange={(e) => set("vehicle_type", e.target.value)}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="demand-image">Image URL</Label>
+                    <Input
+                      id="demand-image"
+                      value={form.image}
+                      onChange={(e) => set("image", e.target.value)}
+                      placeholder="Optional"
+                    />
+                  </div>
                 </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Card No.</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Vehicle Type</TableHead>
-                      <TableHead>Returnable</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Image</TableHead>
-                      <TableHead>Demand Request</TableHead>
-                      <TableHead>Demand State</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {demands.map((d) => (
+
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={form.returnable}
+                    onCheckedChange={(v) => set("returnable", v)}
+                    id="demand-returnable"
+                  />
+                  <Label htmlFor="demand-returnable">Returnable</Label>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="demand-description">Description</Label>
+                  <Textarea
+                    id="demand-description"
+                    rows={3}
+                    value={form.description}
+                    onChange={(e) => set("description", e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Demand Request (Rich Text)</Label>
+                  <RichTextEditor value={form.demand_request} onChange={(v) => set("demand_request", v)} />
+                </div>
+
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                    {submitting ? "Saving…" : "Add Demand Item"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="list" className="mt-4">
+          <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+              <h3 className="text-sm font-medium">Demanded items</h3>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {loading
+                  ? "Loading…"
+                  : `${demands.length} demand${demands.length !== 1 ? "s" : ""}`}
+              </p>
+            </div>
+
+            {!loading && demands.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-14 text-center">
+                <Inbox className="h-8 w-8 text-muted-foreground/50" />
+                <p className="mt-3 text-sm font-medium">No demands yet</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Raise one from the Demand Form tab.
+                </p>
+              </div>
+            ) : (
+              <Table className="text-[13px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Card No.</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead>Vehicle Type</TableHead>
+                    <TableHead>Returnable</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Image</TableHead>
+                    <TableHead>Demand Request</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading &&
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <TableRow key={`demand-skeleton-${i}`}>
+                        <TableCell colSpan={11} className="py-3">
+                          <div className="h-4 w-full animate-pulse rounded-md bg-muted" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  {!loading &&
+                    demands.map((d) => (
                       <TableRow
                         key={d.id}
                         className="cursor-pointer"
                         onClick={() => setDetailsDemand(d)}
                       >
-                        <TableCell className="font-mono">{d.item_no}</TableCell>
-                        <TableCell>{d.name}</TableCell>
-                        <TableCell>{d.type}</TableCell>
-                        <TableCell>{d.quantity}</TableCell>
-                        <TableCell>{d.vehicle_type ?? "—"}</TableCell>
-                        <TableCell>{d.returnable ? "Yes" : "No"}</TableCell>
-                        <TableCell className="max-w-[200px] truncate" title={d.description}>
+                        <TableCell className="font-mono text-xs">{d.item_no}</TableCell>
+                        <TableCell className="font-medium">{d.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{d.type}</TableCell>
+                        <TableCell className="text-right tabular-nums">{d.quantity}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {d.vehicle_type ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {d.returnable ? "Yes" : "No"}
+                        </TableCell>
+                        <TableCell
+                          className="max-w-[200px] truncate text-muted-foreground"
+                          title={d.description}
+                        >
                           {d.description || "—"}
                         </TableCell>
-                        <TableCell className="max-w-[160px] truncate" title={d.image ?? ""}>
+                        <TableCell
+                          className="max-w-[160px] truncate text-muted-foreground"
+                          title={d.image ?? ""}
+                        >
                           {d.image ?? "—"}
                         </TableCell>
-                        <TableCell className="max-w-[300px] truncate" title={stripHtml(d.demand_request)}>
+                        <TableCell
+                          className="max-w-[300px] truncate text-muted-foreground"
+                          title={stripHtml(d.demand_request)}
+                        >
                           {stripHtml(d.demand_request)}
                         </TableCell>
                         <TableCell>
                           {d.fulfilled ? (
-                            <Badge className="bg-green-500/15 text-green-700 border-0">Added</Badge>
+                            <StatusPill tint="emerald" label="Fulfilled" />
                           ) : d.status === "active" ? (
-                            <Badge className="bg-blue-500/15 text-blue-700 border-0">Active</Badge>
+                            <StatusPill tint="sky" label="Active" />
                           ) : (
-                            <Badge variant="outline">Pending</Badge>
+                            <StatusPill tint="amber" label="Pending" />
                           )}
                         </TableCell>
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="inline-flex items-center gap-2">
+                          <div className="inline-flex items-center gap-1">
                             <Button
-                              size="sm"
-                              variant="outline"
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
                               onClick={() => d.id && handleMarkActive(d.id)}
                               disabled={d.fulfilled || d.status === "active"}
+                              aria-label="Mark demand active"
+                              title="Mark active"
                             >
                               <CheckCircle2 className="h-4 w-4" />
                             </Button>
                             <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-destructive"
-                              onClick={() => d.id && handleDelete(d.id)}
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => d.id && setPendingDeleteId(d.id)}
+                              aria-label="Delete demand"
+                              title="Delete"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -339,30 +438,32 @@ export default function Demands() {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!detailsDemand} onOpenChange={(open) => !open && setDetailsDemand(null)}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              Demand Details {detailsDemand ? `- ${detailsDemand.item_no}` : ""}
-            </DialogTitle>
+            <DialogTitle className="text-base font-semibold">Demand details</DialogTitle>
+            {detailsDemand && (
+              <DialogDescription>
+                Card no. <span className="font-mono text-xs">{detailsDemand.item_no}</span>
+              </DialogDescription>
+            )}
           </DialogHeader>
 
           {detailsDemand && (
             <div className="space-y-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Description
                 </p>
                 <div
-                  className="mt-1 rounded-md border bg-muted/20 p-3 text-sm leading-relaxed [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1"
+                  className="mt-1.5 rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1"
                   dangerouslySetInnerHTML={{
                     __html: sanitizeRichHtml(
                       `<p>${escapeHtml(detailsDemand.description?.trim() || "No description provided.")}</p>`,
@@ -372,11 +473,11 @@ export default function Demands() {
               </div>
 
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Demand Request
                 </p>
                 <div
-                  className="mt-1 rounded-md border bg-muted/20 p-3 text-sm leading-relaxed [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1"
+                  className="mt-1.5 rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1"
                   dangerouslySetInnerHTML={{
                     __html: sanitizeRichHtml(detailsDemand.demand_request),
                   }}
@@ -386,6 +487,17 @@ export default function Demands() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => !open && setPendingDeleteId(null)}
+        title="Delete demand"
+        description="This permanently removes the demand. This action cannot be undone."
+        onConfirm={() => {
+          if (pendingDeleteId) handleDelete(pendingDeleteId);
+          setPendingDeleteId(null);
+        }}
+      />
     </div>
   );
 }

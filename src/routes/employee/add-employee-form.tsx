@@ -20,7 +20,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { UserPlus } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, UserPlus } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { createUser, ACCOUNT_TYPES } from "@/lib/auth";
@@ -99,110 +100,139 @@ export function AddEmployeeForm({
   };
 
   return (
-    <Card>
+    <Card className="max-w-3xl">
       <CardHeader>
-        <CardTitle>Add Employee</CardTitle>
-        <CardDescription>Enter the details of the new employee</CardDescription>
+        <CardTitle className="text-base">Add employee</CardTitle>
+        <CardDescription>
+          Create a personnel record and the sign-in account for a new employee.
+        </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="add-username-inline">Username</Label>
-              <Input
-                id="add-username-inline"
-                placeholder="Enter username"
-                value={form.username}
-                onChange={(e) => set("username", e.target.value)}
-                required
-              />
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-medium">Personnel details</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Identity and contact information.
+              </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-email-inline">Email</Label>
-              <Input
-                id="add-email-inline"
-                type="email"
-                placeholder="Enter email address"
-                value={form.email}
-                onChange={(e) => set("email", e.target.value)}
-                required
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="add-name-inline">Full Name</Label>
+                <Input
+                  id="add-name-inline"
+                  placeholder="Enter full name"
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-rank-inline">Rank</Label>
+                <Input
+                  id="add-rank-inline"
+                  placeholder="Enter rank"
+                  value={form.rank}
+                  onChange={(e) => set("rank", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-phone-inline">Phone Number</Label>
+                <Input
+                  id="add-phone-inline"
+                  placeholder="Enter phone number"
+                  value={form.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-ba-bjo-inline">BA/BJO Number</Label>
+                <Input
+                  id="add-ba-bjo-inline"
+                  placeholder="Enter BA/BJO number"
+                  value={form.ba_bjo}
+                  onChange={(e) => set("ba_bjo", e.target.value)}
+                  required
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-name-inline">Full Name</Label>
-              <Input
-                id="add-name-inline"
-                placeholder="Enter full name"
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                required
-              />
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-medium">Account credentials</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Used to sign in to the workshop system.
+              </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-rank-inline">Rank</Label>
-              <Input
-                id="add-rank-inline"
-                placeholder="Enter rank"
-                value={form.rank}
-                onChange={(e) => set("rank", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-phone-inline">Phone Number</Label>
-              <Input
-                id="add-phone-inline"
-                placeholder="Enter phone number"
-                value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-ba-bjo-inline">BA/BJO Number</Label>
-              <Input
-                id="add-ba-bjo-inline"
-                placeholder="Enter BA/BJO number"
-                value={form.ba_bjo}
-                onChange={(e) => set("ba_bjo", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-account-type-inline">Account Type</Label>
-              <Select
-                value={form.account_type}
-                onValueChange={(v) => set("account_type", v)}
-              >
-                <SelectTrigger id="add-account-type-inline">
-                  <SelectValue placeholder="Select account type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACCOUNT_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-password-inline">Initial Password</Label>
-              <Input
-                id="add-password-inline"
-                type="password"
-                placeholder="Enter initial password"
-                value={form.password}
-                onChange={(e) => set("password", e.target.value)}
-                required
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="add-username-inline">Username</Label>
+                <Input
+                  id="add-username-inline"
+                  placeholder="Enter username"
+                  value={form.username}
+                  onChange={(e) => set("username", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-email-inline">Email</Label>
+                <Input
+                  id="add-email-inline"
+                  type="email"
+                  placeholder="Enter email address"
+                  value={form.email}
+                  onChange={(e) => set("email", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-account-type-inline">Account Type</Label>
+                <Select
+                  value={form.account_type}
+                  onValueChange={(v) => set("account_type", v)}
+                >
+                  <SelectTrigger id="add-account-type-inline" className="w-full">
+                    <SelectValue placeholder="Select account type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCOUNT_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-password-inline">Initial Password</Label>
+                <Input
+                  id="add-password-inline"
+                  type="password"
+                  placeholder="Enter initial password"
+                  value={form.password}
+                  onChange={(e) => set("password", e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Shared with the employee for their first sign-in.
+                </p>
+              </div>
             </div>
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="justify-end">
           <Button type="submit" disabled={loading}>
             {loading ? (
-              "Adding..."
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Adding…
+              </>
             ) : (
               <>
                 <UserPlus className="mr-2 h-4 w-4" />

@@ -42,7 +42,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Car, Package, LogIn, LogOut, Plus, Minus, X, Eye, Wrench } from "lucide-react";
+import {
+  Car,
+  Package,
+  LogIn,
+  LogOut,
+  Plus,
+  Minus,
+  X,
+  Eye,
+  Wrench,
+  Inbox,
+  Loader2,
+  MoreHorizontal,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
@@ -166,6 +179,43 @@ function formatDateTime(iso: string) {
 }
 
 type PendingPart = { type: string; name: string; item_no: string; quantity: number };
+
+// ── Status pill (Linear-style dot pill) ───────────────────────────────────────
+
+const pillTints = {
+  emerald:
+    "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  amber:
+    "border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  red: "border-red-500/25 bg-red-500/10 text-red-600 dark:text-red-400",
+  sky: "border-sky-500/25 bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  neutral: "border-transparent bg-muted text-muted-foreground",
+} as const;
+
+type PillTint = keyof typeof pillTints;
+
+function statusTint(status: string): PillTint {
+  const s = status.toLowerCase();
+  if (["completed", "fulfilled", "active", "done"].includes(s)) return "emerald";
+  if (["pending", "in progress", "in-progress"].includes(s)) return "amber";
+  if (["rejected", "lost", "ber"].includes(s)) return "red";
+  if (["blr"].includes(s)) return "sky";
+  return "neutral";
+}
+
+function StatusPill({ label, tint }: { label: string; tint?: PillTint }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium",
+        pillTints[tint ?? statusTint(label)]
+      )}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {label}
+    </span>
+  );
+}
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
@@ -546,166 +596,222 @@ export default function Dashboard() {
 
   // ── Stat card component ───────────────────────────────────────────────────
 
+  const statTints = {
+    primary: "bg-primary/10 text-primary",
+    sky: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+    amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    red: "bg-red-500/10 text-red-600 dark:text-red-400",
+  } as const;
+
   const StatCard = ({
     title,
     value,
     icon: Icon,
-    colorClass,
-    iconColorClass,
+    tint,
   }: {
     title: string;
     value: number | null;
     icon: React.ElementType;
-    colorClass: string;
-    iconColorClass: string;
+    tint: keyof typeof statTints;
   }) => (
-    <Card className={cn("overflow-hidden border-2 shadow-lg", colorClass)}>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <div className="rounded-full bg-background/80 dark:bg-card/90 p-1.5 border border-border/70 shadow-sm">
-          <Icon className={`h-4 w-4 ${iconColorClass}`} />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-black tracking-tight">
-          {loading ? "—" : (value ?? 0)}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex items-start justify-between gap-3 rounded-xl border bg-card p-4 shadow-xs">
+      <div className="min-w-0">
+        <p className="truncate text-xs font-medium text-muted-foreground">
+          {title}
+        </p>
+        {loading ? (
+          <div className="mt-2 h-6 w-12 animate-pulse rounded-md bg-muted" />
+        ) : (
+          <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+            {value ?? 0}
+          </p>
+        )}
+      </div>
+      <div
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
+          statTints[tint]
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+    </div>
   );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">
-          Overview of inventory and operations
-        </p>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Dashboard</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Overview of inventory and workshop operations.
+          </p>
+        </div>
       </div>
 
       {/* ── Stat cards ───────────────────────────────────────────────────── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard
-          title="Total Loads"
-          value={loads.length}
-          icon={Car}
-          colorClass="bg-gradient-to-br from-chart-2/35 via-chart-2/20 to-card border-chart-2/55"
-          iconColorClass="text-chart-2"
-        />
-        <StatCard
-          title="Total Items"
-          value={items.length}
-          icon={Package}
-          colorClass="bg-gradient-to-br from-chart-1/35 via-chart-1/20 to-card border-chart-1/55"
-          iconColorClass="text-chart-1"
-        />
-        <StatCard
-          title="Today's Entries"
-          value={todayEntryCount}
-          icon={LogIn}
-          colorClass="bg-gradient-to-br from-chart-3/35 via-chart-3/20 to-card border-chart-3/55"
-          iconColorClass="text-chart-3"
-        />
-        <StatCard
-          title="Today's Exits"
-          value={todayOutCount}
-          icon={LogOut}
-          colorClass="bg-gradient-to-br from-chart-4/35 via-chart-4/20 to-card border-chart-4/55"
-          iconColorClass="text-chart-4"
-        />
-        <StatCard
-          title="Monthly Entries"
-          value={monthEntryCount}
-          icon={LogIn}
-          colorClass="bg-gradient-to-br from-chart-5/30 via-chart-5/18 to-card border-chart-5/55"
-          iconColorClass="text-chart-5"
-        />
-        <StatCard
-          title="Monthly Exits"
-          value={monthOutCount}
-          icon={LogOut}
-          colorClass="bg-gradient-to-br from-accent/40 via-accent/20 to-card border-accent/60"
-          iconColorClass="text-accent-foreground"
-        />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <StatCard title="Total Loads" value={loads.length} icon={Car} tint="primary" />
+        <StatCard title="Total Items" value={items.length} icon={Package} tint="sky" />
+        <StatCard title="Today's Entries" value={todayEntryCount} icon={LogIn} tint="amber" />
+        <StatCard title="Today's Exits" value={todayOutCount} icon={LogOut} tint="red" />
+        <StatCard title="Monthly Entries" value={monthEntryCount} icon={LogIn} tint="primary" />
+        <StatCard title="Monthly Exits" value={monthOutCount} icon={LogOut} tint="sky" />
       </div>
 
       {/* ── Vehicle chart + demand card ─────────────────────────────────── */}
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
-          <CardHeader className="flex flex-row items-start justify-between">
+          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
             <div>
-              <CardTitle>Vehicle Entry/Exit</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-sm font-medium">
+                Vehicle Entry/Exit
+              </CardTitle>
+              <CardDescription className="mt-0.5">
                 Trend of vehicle repair inflow and exit
               </CardDescription>
             </div>
-            <div className="inline-flex rounded-lg border bg-muted/30 p-1">
+            <div
+              className="inline-flex items-center rounded-lg border bg-muted/40 p-0.5"
+              role="group"
+              aria-label="Chart range"
+            >
               {(["weekly", "monthly", "yearly"] as const).map((range) => (
-                <Button
+                <button
                   key={range}
-                  size="sm"
-                  variant={chartRange === range ? "default" : "ghost"}
-                  className="capitalize"
+                  type="button"
                   onClick={() => setChartRange(range)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors",
+                    chartRange === range
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
                 >
                   {range}
-                </Button>
+                </button>
               ))}
             </div>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="4 4" strokeOpacity={0.25} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="entry"
-                  stroke="var(--color-chart-2)"
-                  strokeWidth={3}
-                  dot={{ r: 3 }}
-                  name="Entries"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="exit"
-                  stroke="var(--color-chart-3)"
-                  strokeWidth={3}
-                  dot={{ r: 3 }}
-                  name="Exits"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="h-full w-full animate-pulse rounded-lg bg-muted" />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={chartData}
+                  margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    vertical={false}
+                    stroke="var(--border)"
+                    strokeDasharray="4 4"
+                  />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+                  />
+                  <Tooltip
+                    cursor={{ stroke: "var(--border)" }}
+                    contentStyle={{
+                      backgroundColor: "var(--popover)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "0.5rem",
+                      boxShadow: "0 4px 12px rgb(0 0 0 / 0.08)",
+                      color: "var(--popover-foreground)",
+                      fontSize: 12,
+                      padding: "8px 12px",
+                    }}
+                    labelStyle={{
+                      color: "var(--muted-foreground)",
+                      marginBottom: 4,
+                    }}
+                  />
+                  <Legend
+                    iconType="circle"
+                    iconSize={7}
+                    wrapperStyle={{ fontSize: 12 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="entry"
+                    stroke="var(--chart-1)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 3, strokeWidth: 0 }}
+                    name="Entries"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="exit"
+                    stroke="var(--chart-3)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 3, strokeWidth: 0 }}
+                    name="Exits"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Items in Demand</CardTitle>
-            <CardDescription>
-              {loading ? "Loading..." : `${openDemands.length} open demand request(s)`}
+            <CardTitle className="text-sm font-medium">Items in Demand</CardTitle>
+            <CardDescription className="tabular-nums">
+              {loading
+                ? "Loading…"
+                : `${openDemands.length} open demand request${openDemands.length !== 1 ? "s" : ""}`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
+            {loading &&
+              [...Array(3)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-[52px] animate-pulse rounded-lg bg-muted"
+                />
+              ))}
             {openDemands.slice(0, 6).map((demand) => (
               <div
                 key={demand.id}
-                className="rounded-lg border px-3 py-2 bg-card/70"
+                className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium">{demand.name}</p>
-                  <Badge variant="outline">Qty {demand.quantity}</Badge>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{demand.name}</p>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {demand.item_no}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground font-mono">{demand.item_no}</p>
+                <span className="shrink-0 rounded-full border bg-muted/50 px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+                  ×{demand.quantity}
+                </span>
               </div>
             ))}
             {!loading && openDemands.length === 0 && (
-              <p className="text-sm text-muted-foreground">No active demand items.</p>
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-10 text-center">
+                <Inbox className="h-8 w-8 text-muted-foreground/50" />
+                <p className="mt-3 text-sm font-medium">No open demands</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Demand requests will appear here once raised.
+                </p>
+              </div>
             )}
-            <Button className="w-full mt-2" onClick={() => navigate("/inventory/demands")}>
+            <Button
+              variant="outline"
+              className="mt-2 w-full"
+              onClick={() => navigate("/inventory/demands")}
+            >
               Open Demands
             </Button>
           </CardContent>
@@ -715,183 +821,201 @@ export default function Dashboard() {
       {/* ── Work In Progress table ────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>Work In Progress</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-sm font-medium">Work In Progress</CardTitle>
+          <CardDescription className="tabular-nums">
             {loading
-              ? "Loading..."
+              ? "Loading…"
               : `${wip.length} asset${wip.length !== 1 ? "s" : ""} currently in progress`}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Asset No.</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Entry Time</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Parts</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {wip.length === 0 && !loading && (
+          <div className="overflow-hidden rounded-lg border">
+            <Table className="text-[13px]">
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="text-center text-muted-foreground py-8"
-                  >
-                    No assets currently in progress
-                  </TableCell>
+                  <TableHead>Asset No.</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Entry Time</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Parts</TableHead>
+                  <TableHead />
                 </TableRow>
-              )}
-              {wip.map((entry) => {
-                const { blr, ber } = getEntryBlrBer(entry);
-                return (
-                  <TableRow
-                    key={entry.id}
-                    className={cn(
-                      ber
-                        ? "bg-destructive/10 hover:bg-destructive/15"
-                        : blr
-                        ? "bg-chart-3/10 hover:bg-chart-3/15"
-                        : ""
-                    )}
-                  >
-                    <TableCell className="font-medium">
-                      {entry.asset_no}
-                    </TableCell>
-                    <TableCell>
-                      {entry.asset_name}
-                      {entry.div && (
-                        <span className="ml-1 text-muted-foreground">({entry.div})</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{entry.asset_type}</TableCell>
-                    <TableCell>{formatDateTime(entry.entry_time)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <Badge
-                          variant="outline"
-                          className="bg-orange-500/10 text-orange-600 border-orange-500/20"
-                        >
-                          {entry.status}
-                        </Badge>
-                        {ber && (
-                          <Badge
-                            variant="outline"
-                            className="bg-destructive/10 text-destructive border-destructive/20"
-                          >
-                            BER
-                          </Badge>
-                        )}
-                        {blr && !ber && (
-                          <Badge
-                            variant="outline"
-                            className="bg-chart-3/10 text-chart-3 border-chart-3/20"
-                          >
-                            BLR
-                          </Badge>
-                        )}
+              </TableHeader>
+              <TableBody>
+                {loading &&
+                  [...Array(4)].map((_, i) => (
+                    <TableRow key={`skeleton-${i}`}>
+                      {[...Array(7)].map((_, j) => (
+                        <TableCell key={j}>
+                          <div className="h-4 animate-pulse rounded bg-muted" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                {wip.length === 0 && !loading && (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={7} className="py-12">
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <Wrench className="h-8 w-8 text-muted-foreground/40" />
+                        <p className="mt-3 text-sm font-medium">
+                          No work in progress
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Assets entered for repair will appear here.
+                        </p>
                       </div>
                     </TableCell>
-                    <TableCell>{entry.issued_parts.length}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            size="sm"
-                            className="bg-gradient-to-r from-chart-2 to-chart-4 text-white border-0 shadow-md hover:from-chart-2/90 hover:to-chart-4/90"
-                          >
-                            Actions
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openDialog(entry)}>
-                            <Wrench className="mr-2 h-4 w-4" />
-                            Manage
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setDetailsEntry(entry)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                )}
+                {wip.map((entry) => {
+                  const { blr, ber } = getEntryBlrBer(entry);
+                  return (
+                    <TableRow
+                      key={entry.id}
+                      className={cn(
+                        ber
+                          ? "bg-red-500/5 hover:bg-red-500/10"
+                          : blr
+                          ? "bg-sky-500/5 hover:bg-sky-500/10"
+                          : ""
+                      )}
+                    >
+                      <TableCell className="font-mono text-xs">
+                        {entry.asset_no}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {entry.asset_name}
+                        {entry.div && (
+                          <span className="ml-1 font-normal text-muted-foreground">
+                            ({entry.div})
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {entry.asset_type}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {formatDateTime(entry.entry_time)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <StatusPill label={entry.status} tint="amber" />
+                          {ber && <StatusPill label="BER" tint="red" />}
+                          {blr && !ber && <StatusPill label="BLR" tint="sky" />}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {entry.issued_parts.length}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">
+                                Actions for {entry.asset_no}
+                              </span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openDialog(entry)}>
+                              <Wrench className="mr-2 h-4 w-4" />
+                              Manage
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setDetailsEntry(entry)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
       <Dialog open={!!detailsEntry} onOpenChange={(o) => !o && setDetailsEntry(null)}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Entry Details</DialogTitle>
+            <DialogTitle className="text-base font-semibold">
+              Entry Details
+            </DialogTitle>
             <DialogDescription>
-              {detailsEntry?.asset_no} · {detailsEntry?.asset_name}
+              <span className="font-mono text-xs">{detailsEntry?.asset_no}</span>
+              {" · "}
+              {detailsEntry?.asset_name}
             </DialogDescription>
           </DialogHeader>
           {detailsEntry && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                 <div>
-                  <p className="text-muted-foreground">Category</p>
-                  <p className="font-medium">{detailsEntry.asset_category}</p>
+                  <p className="text-xs font-medium text-muted-foreground">Category</p>
+                  <p className="mt-0.5 text-sm font-medium">{detailsEntry.asset_category}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Type</p>
-                  <p className="font-medium">{detailsEntry.asset_type}</p>
+                  <p className="text-xs font-medium text-muted-foreground">Type</p>
+                  <p className="mt-0.5 text-sm font-medium">{detailsEntry.asset_type}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Unit</p>
-                  <p className="font-medium">{detailsEntry.asset_unit || "—"}</p>
+                  <p className="text-xs font-medium text-muted-foreground">Unit</p>
+                  <p className="mt-0.5 text-sm font-medium">{detailsEntry.asset_unit || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Division</p>
-                  <p className="font-medium">{detailsEntry.div || "—"}</p>
+                  <p className="text-xs font-medium text-muted-foreground">Division</p>
+                  <p className="mt-0.5 text-sm font-medium">{detailsEntry.div || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Status</p>
-                  <p className="font-medium">{detailsEntry.status}</p>
+                  <p className="text-xs font-medium text-muted-foreground">Status</p>
+                  <p className="mt-1">
+                    <StatusPill label={detailsEntry.status} />
+                  </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Entered By</p>
-                  <p className="font-medium">{detailsEntry.entered_by || "—"}</p>
+                  <p className="text-xs font-medium text-muted-foreground">Entered By</p>
+                  <p className="mt-0.5 text-sm font-medium">{detailsEntry.entered_by || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Entry Time</p>
-                  <p className="font-medium">{formatDateTime(detailsEntry.entry_time)}</p>
+                  <p className="text-xs font-medium text-muted-foreground">Entry Time</p>
+                  <p className="mt-0.5 text-sm font-medium">{formatDateTime(detailsEntry.entry_time)}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Out Time</p>
-                  <p className="font-medium">
+                  <p className="text-xs font-medium text-muted-foreground">Out Time</p>
+                  <p className="mt-0.5 text-sm font-medium">
                     {detailsEntry.out_time ? formatDateTime(detailsEntry.out_time) : "In Progress"}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Issued Parts</p>
+                <p className="text-sm font-medium">Issued Parts</p>
                 {detailsEntry.issued_parts.length === 0 ? (
-                  <p className="text-sm">No issued parts.</p>
+                  <p className="text-sm text-muted-foreground">
+                    No parts issued for this entry.
+                  </p>
                 ) : (
-                  <div className="rounded-md border overflow-hidden">
-                    <Table>
+                  <div className="overflow-hidden rounded-lg border">
+                    <Table className="text-[13px]">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Item No.</TableHead>
-                          <TableHead>Quantity</TableHead>
+                          <TableHead className="text-right">Quantity</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {detailsEntry.issued_parts.map((part) => (
                           <TableRow key={part.item_no}>
-                            <TableCell className="font-mono">{part.item_no}</TableCell>
-                            <TableCell>{part.quantity}</TableCell>
+                            <TableCell className="font-mono text-xs">{part.item_no}</TableCell>
+                            <TableCell className="text-right tabular-nums">{part.quantity}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -902,8 +1026,8 @@ export default function Dashboard() {
 
               {detailsEntry.notes && (
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Notes</p>
-                  <p className="text-sm">{detailsEntry.notes}</p>
+                  <p className="text-sm font-medium">Notes</p>
+                  <p className="text-sm text-muted-foreground">{detailsEntry.notes}</p>
                 </div>
               )}
             </div>
@@ -918,7 +1042,7 @@ export default function Dashboard() {
       >
         <DialogContent className="sm:max-w-5xl">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-base font-semibold">
               {dialogEntry?.asset_no} — {dialogEntry?.asset_name}
             </DialogTitle>
             <DialogDescription>
@@ -928,14 +1052,18 @@ export default function Dashboard() {
           </DialogHeader>
 
           {/* Mode toggle */}
-          <div className="flex gap-1 rounded-md border bg-muted/30 p-1">
+          <div
+            className="flex gap-1 rounded-lg border bg-muted/40 p-0.5"
+            role="group"
+            aria-label="Dialog mode"
+          >
             <button
               type="button"
               onClick={() => switchMode("issue")}
               className={cn(
-                "flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors",
+                "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                 dialogMode === "issue"
-                  ? "bg-background shadow text-foreground"
+                  ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -945,9 +1073,9 @@ export default function Dashboard() {
               type="button"
               onClick={() => switchMode("exit")}
               className={cn(
-                "flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors",
+                "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                 dialogMode === "exit"
-                  ? "bg-background shadow text-foreground"
+                  ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -957,7 +1085,7 @@ export default function Dashboard() {
 
           {/* ── Issue Parts mode ── */}
           {dialogMode === "issue" && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-5 md:grid-cols-2">
               {/* Left: add part form */}
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Add Part</Label>
@@ -1052,7 +1180,8 @@ export default function Dashboard() {
                           <button
                             type="button"
                             onClick={() => removePendingPart(p.item_no)}
-                            className="ml-1 rounded-full hover:text-destructive"
+                            className="ml-1 rounded-full text-muted-foreground transition-colors hover:text-destructive"
+                            aria-label={`Remove ${p.item_no} from pending parts`}
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -1074,18 +1203,21 @@ export default function Dashboard() {
                   )}
                 </Label>
                 {!dialogEntry || dialogEntry.issued_parts.length === 0 ? (
-                  <div className="flex h-32 items-center justify-center rounded-md border border-dashed">
-                    <p className="text-xs text-muted-foreground">No parts issued yet</p>
+                  <div className="flex h-32 flex-col items-center justify-center rounded-lg border border-dashed text-center">
+                    <Package className="h-6 w-6 text-muted-foreground/40" />
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      No parts issued yet
+                    </p>
                   </div>
                 ) : (
-                  <div className="rounded-md border overflow-hidden">
+                  <div className="overflow-hidden rounded-lg border">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead className="text-xs">Item No.</TableHead>
                           <TableHead className="text-xs">Name</TableHead>
-                          <TableHead className="text-xs text-center">Issued</TableHead>
-                          <TableHead className="text-xs text-center">Available</TableHead>
+                          <TableHead className="text-right text-xs">Issued</TableHead>
+                          <TableHead className="text-right text-xs">Available</TableHead>
                           <TableHead className="text-xs" />
                         </TableRow>
                       </TableHeader>
@@ -1094,11 +1226,11 @@ export default function Dashboard() {
                           const found = items.find((i) => i.item_no === p.item_no);
                           return (
                             <TableRow key={p.item_no}>
-                              <TableCell className="font-mono text-xs py-2">{p.item_no}</TableCell>
-                              <TableCell className="text-xs py-2">{found?.name ?? "—"}</TableCell>
-                              <TableCell className="text-center text-xs py-2">{p.quantity}</TableCell>
-                              <TableCell className="text-center text-xs py-2">
-                                <span className={cn(found?.quantity === 0 ? "text-destructive font-medium" : "")}>
+                              <TableCell className="py-2 font-mono text-xs">{p.item_no}</TableCell>
+                              <TableCell className="py-2 text-xs">{found?.name ?? "—"}</TableCell>
+                              <TableCell className="py-2 text-right text-xs tabular-nums">{p.quantity}</TableCell>
+                              <TableCell className="py-2 text-right text-xs tabular-nums">
+                                <span className={cn(found?.quantity === 0 ? "font-medium text-destructive" : "")}>
                                   {found?.quantity ?? 0}
                                 </span>
                               </TableCell>
@@ -1107,27 +1239,36 @@ export default function Dashboard() {
                                   <Button
                                     size="icon"
                                     variant="ghost"
-                                    className="h-6 w-6"
+                                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
                                     onClick={() => handleDecreaseIssuedPart(p.item_no)}
                                   >
                                     <Minus className="h-3 w-3" />
+                                    <span className="sr-only">
+                                      Decrease quantity of {p.item_no}
+                                    </span>
                                   </Button>
                                   <Button
                                     size="icon"
                                     variant="ghost"
-                                    className="h-6 w-6"
+                                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
                                     disabled={(found?.quantity ?? 0) <= 0}
                                     onClick={() => handleIncreaseIssuedPart(p.item_no)}
                                   >
                                     <Plus className="h-3 w-3" />
+                                    <span className="sr-only">
+                                      Increase quantity of {p.item_no}
+                                    </span>
                                   </Button>
                                   <Button
                                     size="icon"
                                     variant="ghost"
-                                    className="h-6 w-6 hover:text-destructive"
+                                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
                                     onClick={() => handleRemoveIssuedPart(p.item_no)}
                                   >
                                     <X className="h-3 w-3" />
+                                    <span className="sr-only">
+                                      Remove {p.item_no}
+                                    </span>
                                   </Button>
                                 </div>
                               </TableCell>
@@ -1144,35 +1285,39 @@ export default function Dashboard() {
 
           {/* ── Exit Asset mode ── */}
           {dialogMode === "exit" && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 space-y-1">
+            <div className="space-y-1 rounded-lg border border-destructive/25 bg-destructive/5 p-4">
               <p className="text-sm font-medium">Mark as exited?</p>
               <p className="text-sm text-muted-foreground">
                 This will set the status to{" "}
-                <span className="font-medium">Completed</span> and record the
-                current time as the exit time. The asset will be removed from
-                the Work In Progress list.
+                <span className="font-medium text-foreground">Completed</span>{" "}
+                and record the current time as the exit time. The asset will be
+                removed from the Work In Progress list.
               </p>
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
+            <Button type="button" variant="outline" onClick={closeDialog}>
               Cancel
             </Button>
             {dialogMode === "issue" ? (
               <Button
+                type="button"
                 onClick={handleIssueParts}
                 disabled={submitting || pendingParts.length === 0}
               >
-                {submitting ? "Issuing..." : "Issue Parts"}
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {submitting ? "Issuing…" : "Issue Parts"}
               </Button>
             ) : (
               <Button
+                type="button"
                 variant="destructive"
                 onClick={handleExit}
                 disabled={submitting}
               >
-                {submitting ? "Exiting..." : "Exit Asset"}
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {submitting ? "Exiting…" : "Exit Asset"}
               </Button>
             )}
           </DialogFooter>

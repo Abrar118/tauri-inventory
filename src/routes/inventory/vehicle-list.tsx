@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,7 +13,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,17 +22,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   AlertTriangle,
   CheckCircle,
   Edit,
+  Loader2,
   MoreHorizontal,
+  PackageOpen,
   PackagePlus,
   Search,
   Trash,
@@ -43,12 +38,14 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { EditVehicleModal } from "@/components/edit-vehicle-modal";
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import {
@@ -62,6 +59,39 @@ import { useAuth } from "@/context/auth-context";
 import type { Load } from "@/types";
 
 const APPROVER_ROLES = ["ADMIN", "OC", "WORKSHOP_OFFICER"];
+
+// ── Presentational helpers ────────────────────────────────────────────────────
+
+const PILL_TINTS = {
+  emerald:
+    "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  amber:
+    "border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  red: "border-red-500/25 bg-red-500/10 text-red-600 dark:text-red-400",
+  sky: "border-sky-500/25 bg-sky-500/10 text-sky-600 dark:text-sky-400",
+} as const;
+
+function DotPill({
+  tint,
+  children,
+}: {
+  tint: keyof typeof PILL_TINTS;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium",
+        PILL_TINTS[tint],
+      )}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {children}
+    </span>
+  );
+}
+
+const SKELETON_WIDTHS = ["w-24", "w-32", "w-16", "w-20", "w-14"];
 
 export default function VehicleList() {
   const navigate = useNavigate();
@@ -114,6 +144,10 @@ export default function VehicleList() {
   };
 
   // ── Single-row actions ─────────────────────────────────────────────────────
+
+  const [pendingDelete, setPendingDelete] = useState<
+    { kind: "single"; id: string } | { kind: "bulk" } | null
+  >(null);
 
   const handleDelete = async (id: string) => {
     try {
@@ -264,37 +298,50 @@ export default function VehicleList() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Loads</h2>
-        <p className="text-muted-foreground">
-          All loads — vehicles, guns, equipment, weapons
-        </p>
-      </div>
+  const blrBerCandidates = loads.filter(
+    (l) =>
+      (l.quantity ?? 0) > 0 &&
+      l.status === "active" &&
+      (l.name.toLowerCase().includes(blrBerSearch.toLowerCase()) ||
+        l.catalog_no.toLowerCase().includes(blrBerSearch.toLowerCase())),
+  );
 
-      <div className="flex items-center justify-between gap-2">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-auto">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Search loads..."
-            className="pl-8 w-[300px]"
+            className="w-full pl-8 sm:w-64"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => openBlrBerModal("blr")}>
-            <AlertTriangle className="mr-2 h-4 w-4 text-orange-600" />
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {loading ? "Loading…" : `${filtered.length} of ${loads.length} loads`}
+        </span>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => openBlrBerModal("blr")}
+          >
+            <AlertTriangle className="mr-1.5 h-4 w-4 text-sky-600 dark:text-sky-400" />
             Mark BLR
           </Button>
-          <Button variant="outline" onClick={() => openBlrBerModal("ber")}>
-            <AlertTriangle className="mr-2 h-4 w-4 text-destructive" />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => openBlrBerModal("ber")}
+          >
+            <AlertTriangle className="mr-1.5 h-4 w-4 text-red-600 dark:text-red-400" />
             Mark BER
           </Button>
-          <Button onClick={() => navigate("/inventory/loads?tab=add")}>
-            <PackagePlus className="mr-2 h-4 w-4" />
+          <Button size="sm" onClick={() => navigate("/inventory/loads?tab=add")}>
+            <PackagePlus className="mr-1.5 h-4 w-4" />
             Add Load
           </Button>
         </div>
@@ -302,18 +349,18 @@ export default function VehicleList() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-4 py-2">
-          <span className="text-sm font-medium mr-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-xs">
+          <span className="mr-2 text-sm font-medium tabular-nums">
             {selectedIds.size} selected
           </span>
           {canApprove && (
             <>
               <Button size="sm" variant="outline" onClick={handleBulkApprove}>
-                <CheckCircle className="mr-1.5 h-3.5 w-3.5 text-green-600" />
+                <CheckCircle className="mr-1.5 h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                 Approve
               </Button>
               <Button size="sm" variant="outline" onClick={handleBulkReject}>
-                <XCircle className="mr-1.5 h-3.5 w-3.5 text-yellow-600" />
+                <XCircle className="mr-1.5 h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                 Reject
               </Button>
             </>
@@ -322,7 +369,7 @@ export default function VehicleList() {
             size="sm"
             variant="outline"
             className="text-destructive hover:text-destructive"
-            onClick={handleBulkDelete}
+            onClick={() => setPendingDelete({ kind: "bulk" })}
           >
             <Trash className="mr-1.5 h-3.5 w-3.5" />
             Delete
@@ -338,21 +385,35 @@ export default function VehicleList() {
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Loads</CardTitle>
-          <CardDescription>
-            {loading
-              ? "Loading..."
-              : `Showing ${filtered.length} of ${loads.length} loads`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      {/* Table / empty state */}
+      {!loading && filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-14 text-center">
+          {loads.length === 0 ? (
+            <>
+              <PackageOpen className="h-8 w-8 text-muted-foreground/50" />
+              <p className="mt-3 text-sm font-medium">No loads yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Add your first load from the Add Load tab.
+              </p>
+            </>
+          ) : (
+            <>
+              <Search className="h-8 w-8 text-muted-foreground/50" />
+              <p className="mt-3 text-sm font-medium">No matching loads</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Try a different name, catalog number, category or unit.
+              </p>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">
                   <Checkbox
+                    aria-label="Select all loads"
                     checked={
                       allSelected
                         ? true
@@ -374,148 +435,191 @@ export default function VehicleList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((load) => (
-                <TableRow
-                  key={load.id}
-                  data-state={
-                    load.id && selectedIds.has(load.id) ? "selected" : undefined
-                  }
-                  className={cn(
-                    (load.ber_count ?? 0) > 0
-                      ? "bg-destructive/10 hover:bg-destructive/15"
-                      : (load.blr_count ?? 0) > 0
-                        ? "bg-chart-3/10 hover:bg-chart-3/15"
-                        : "",
-                  )}
-                >
-                  <TableCell>
-                    <Checkbox
-                      checked={!!(load.id && selectedIds.has(load.id))}
-                      onCheckedChange={() => load.id && toggleOne(load.id)}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {load.catalog_no}
-                  </TableCell>
-                  <TableCell>{load.name}</TableCell>
-                  <TableCell>{load.category}</TableCell>
-                  <TableCell>{load.catalog_type}</TableCell>
-                  <TableCell>{load.unit}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1.5">
-                      {(load.ber_count ?? 0) > 0 && (
-                        <Badge
-                          variant="outline"
-                          className="bg-destructive/10 text-destructive border-destructive/20"
-                        >
-                          BER {load.ber_count}
-                        </Badge>
+              {loading
+                ? SKELETON_WIDTHS.map((w, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <div className="h-4 w-4 animate-pulse rounded-sm bg-muted" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-4 w-20 animate-pulse rounded-md bg-muted" />
+                      </TableCell>
+                      <TableCell>
+                        <div
+                          className={cn(
+                            "h-4 animate-pulse rounded-md bg-muted",
+                            w,
+                          )}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-4 w-16 animate-pulse rounded-md bg-muted" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-4 w-16 animate-pulse rounded-md bg-muted" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-4 w-14 animate-pulse rounded-md bg-muted" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-5 w-20 animate-pulse rounded-full bg-muted" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  ))
+                : filtered.map((load) => (
+                    <TableRow
+                      key={load.id}
+                      data-state={
+                        load.id && selectedIds.has(load.id)
+                          ? "selected"
+                          : undefined
+                      }
+                      className={cn(
+                        (load.ber_count ?? 0) > 0
+                          ? "bg-red-500/5 hover:bg-red-500/10"
+                          : (load.blr_count ?? 0) > 0
+                            ? "bg-sky-500/5 hover:bg-sky-500/10"
+                            : "",
                       )}
-                      {(load.blr_count ?? 0) > 0 && (
-                        <Badge
-                          variant="outline"
-                          className="bg-orange-500/10 text-orange-600 border-orange-500/20"
-                        >
-                          BLR {load.blr_count}
-                        </Badge>
-                      )}
-                      {(load.blr_count ?? 0) === 0 &&
-                        (load.ber_count ?? 0) === 0 && (
-                          <Badge
-                            variant="outline"
-                            className="bg-chart-1/10 text-chart-1 border-chart-1/20"
-                          >
-                            Operational
-                          </Badge>
+                    >
+                      <TableCell>
+                        <Checkbox
+                          aria-label={`Select ${load.name}`}
+                          checked={!!(load.id && selectedIds.has(load.id))}
+                          onCheckedChange={() => load.id && toggleOne(load.id)}
+                        />
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {load.catalog_no}
+                      </TableCell>
+                      <TableCell className="font-medium">{load.name}</TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                          {load.category}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-[13px] text-muted-foreground">
+                        {load.catalog_type}
+                      </TableCell>
+                      <TableCell className="text-[13px] text-muted-foreground">
+                        {load.unit}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(load.ber_count ?? 0) > 0 && (
+                            <DotPill tint="red">
+                              BER{" "}
+                              <span className="tabular-nums">
+                                {load.ber_count}
+                              </span>
+                            </DotPill>
+                          )}
+                          {(load.blr_count ?? 0) > 0 && (
+                            <DotPill tint="sky">
+                              BLR{" "}
+                              <span className="tabular-nums">
+                                {load.blr_count}
+                              </span>
+                            </DotPill>
+                          )}
+                          {(load.blr_count ?? 0) === 0 &&
+                            (load.ber_count ?? 0) === 0 && (
+                              <DotPill tint="emerald">Operational</DotPill>
+                            )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {load.status === "pending" ? (
+                          <DotPill tint="amber">Pending</DotPill>
+                        ) : load.status === "rejected" ? (
+                          <DotPill tint="red">Rejected</DotPill>
+                        ) : (
+                          <DotPill tint="emerald">Active</DotPill>
                         )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {load.status === "pending" ? (
-                      <Badge
-                        variant="outline"
-                        className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
-                      >
-                        Pending
-                      </Badge>
-                    ) : load.status === "rejected" ? (
-                      <Badge
-                        variant="outline"
-                        className="bg-destructive/10 text-destructive border-destructive/20"
-                      >
-                        Rejected
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="bg-green-500/10 text-green-600 border-green-500/20"
-                      >
-                        Active
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        {canApprove && load.status === "pending" && (
-                          <>
-                            <DropdownMenuItem
-                              onClick={() => load.id && handleApprove(load.id)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground"
                             >
-                              <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                              <span>Approve</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => load.id && handleReject(load.id)}
-                            >
-                              <XCircle className="mr-2 h-4 w-4 text-yellow-600" />
-                              <span>Reject</span>
+                              <span className="sr-only">
+                                Open actions for {load.name}
+                              </span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            {canApprove && load.status === "pending" && (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    load.id && handleApprove(load.id)
+                                  }
+                                >
+                                  <CheckCircle className="mr-2 h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                  <span>Approve</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    load.id && handleReject(load.id)
+                                  }
+                                >
+                                  <XCircle className="mr-2 h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                  <span>Reject</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
+                            <DropdownMenuItem onClick={() => setEditLoad(load)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              <span>Edit</span>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                          </>
-                        )}
-                        <DropdownMenuItem onClick={() => setEditLoad(load)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          <span>Edit</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => load.id && handleDelete(load.id)}
-                        >
-                          <Trash className="mr-2 h-4 w-4" />
-                          <span>Delete</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() =>
+                                load.id && setPendingDelete({ kind: "single", id: load.id })
+                              }
+                            >
+                              <Trash className="mr-2 h-4 w-4" />
+                              <span>Delete</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </div>
+      )}
+
       {/* Mark BLR / BER modal */}
-      <Dialog
-        open={!!blrBerMode}
-        onOpenChange={(o) => !o && closeBlrBerModal()}
-      >
+      <Dialog open={!!blrBerMode} onOpenChange={(o) => !o && closeBlrBerModal()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-base font-semibold">
               {blrBerMode === "blr" ? "Mark BLR" : "Mark BER"}
             </DialogTitle>
+            <DialogDescription>
+              Select an active load and record how many are{" "}
+              {blrBerMode === "blr"
+                ? "beyond local repair"
+                : "beyond economic repair"}
+              .
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search loads..."
                 className="pl-8"
@@ -527,24 +631,17 @@ export default function VehicleList() {
               />
             </div>
             {!blrBerSelected && (
-              <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
-                {loads
-                  .filter(
-                    (l) =>
-                      (l.quantity ?? 0) > 0 &&
-                      l.status === "active" &&
-                      (l.name
-                        .toLowerCase()
-                        .includes(blrBerSearch.toLowerCase()) ||
-                        l.catalog_no
-                          .toLowerCase()
-                          .includes(blrBerSearch.toLowerCase())),
-                  )
-                  .map((l) => (
+              <div className="max-h-64 divide-y overflow-y-auto rounded-md border">
+                {blrBerCandidates.length === 0 ? (
+                  <p className="px-3 py-8 text-center text-xs text-muted-foreground">
+                    No active loads match your search.
+                  </p>
+                ) : (
+                  blrBerCandidates.map((l) => (
                     <button
                       key={l.id}
                       type="button"
-                      className="w-full flex items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-muted/50 transition-colors"
+                      className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50"
                       onClick={() => {
                         setBlrBerSelected(l);
                         setBlrBerCount(1);
@@ -556,19 +653,20 @@ export default function VehicleList() {
                           {l.catalog_no}
                         </span>
                       </div>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs tabular-nums text-muted-foreground">
                         Qty: {l.quantity}
                       </span>
                     </button>
-                  ))}
+                  ))
+                )}
               </div>
             )}
             {blrBerSelected && (
-              <div className="rounded-md border p-3 space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="space-y-3 rounded-md border p-3">
+                <div className="flex items-center justify-between gap-2">
                   <div>
-                    <p className="font-medium text-sm">{blrBerSelected.name}</p>
-                    <p className="text-xs text-muted-foreground font-mono">
+                    <p className="text-sm font-medium">{blrBerSelected.name}</p>
+                    <p className="font-mono text-xs tabular-nums text-muted-foreground">
                       {blrBerSelected.catalog_no} · Available:{" "}
                       {blrBerSelected.quantity}
                     </p>
@@ -581,8 +679,11 @@ export default function VehicleList() {
                     Change
                   </Button>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="blr-ber-count"
+                    className="text-xs text-muted-foreground"
+                  >
                     How many are{" "}
                     {blrBerMode === "blr"
                       ? "Beyond Local Repair"
@@ -590,7 +691,9 @@ export default function VehicleList() {
                     ?
                   </Label>
                   <Input
+                    id="blr-ber-count"
                     type="number"
+                    className="tabular-nums"
                     min={1}
                     max={blrBerSelected.quantity}
                     value={blrBerCount}
@@ -608,7 +711,11 @@ export default function VehicleList() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeBlrBerModal}>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={closeBlrBerModal}
+            >
               Cancel
             </Button>
             <Button
@@ -616,6 +723,9 @@ export default function VehicleList() {
               disabled={!blrBerSelected || blrBerSubmitting}
               variant={blrBerMode === "ber" ? "destructive" : "default"}
             >
+              {blrBerSubmitting && (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              )}
               {blrBerSubmitting
                 ? "Saving..."
                 : blrBerMode === "blr"
@@ -626,6 +736,21 @@ export default function VehicleList() {
         </DialogContent>
       </Dialog>
 
+      <ConfirmDeleteDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title={pendingDelete?.kind === "bulk" ? "Delete selected loads" : "Delete load"}
+        description={
+          pendingDelete?.kind === "bulk"
+            ? `This permanently deletes ${selectedIds.size} selected load${selectedIds.size !== 1 ? "s" : ""}. This action cannot be undone.`
+            : "This permanently deletes the load. This action cannot be undone."
+        }
+        onConfirm={() => {
+          if (pendingDelete?.kind === "single") handleDelete(pendingDelete.id);
+          else if (pendingDelete?.kind === "bulk") handleBulkDelete();
+          setPendingDelete(null);
+        }}
+      />
       {editLoad && (
         <EditVehicleModal
           vehicle={editLoad}

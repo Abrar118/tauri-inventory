@@ -35,7 +35,7 @@ import { getLoads } from "@/services/loads";
 import { getDemands } from "@/services/demands";
 import { toastError } from "@/lib/toast";
 import { goeyToast } from "goey-toast";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, FileDown, Inbox, Loader2 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import type { Demand, Entry, Item, Load } from "@/types";
 
@@ -335,19 +335,25 @@ export default function Report() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Reports</h2>
-        <p className="text-muted-foreground">Preview report tables and download PDF from Tauri backend</p>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Reports</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Preview report tables and export them as PDF.
+          </p>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Report Generator</CardTitle>
-          <CardDescription>Choose report and filter scope (month, week, or date range)</CardDescription>
+          <CardTitle className="text-sm font-medium">Report generator</CardTitle>
+          <CardDescription>
+            Choose a report and filter scope — month, week, or date range.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
               <Label>Report Type</Label>
               <Select value={reportType} onValueChange={(v) => setReportType(v as ReportType)}>
@@ -466,13 +472,18 @@ export default function Report() {
             )}
           </div>
 
-          <div className="flex items-center justify-between rounded-md border px-3 py-2">
-            <div className="text-sm">
-              <p className="font-medium">{selectedReportLabel}</p>
-              <p className="text-muted-foreground">{filterSummary}</p>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/40 px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">{selectedReportLabel}</p>
+              <p className="text-xs text-muted-foreground">{filterSummary}</p>
             </div>
-            <Button onClick={handleDownloadPdf} disabled={loading || downloading}>
-              {downloading ? "Generating PDF..." : "Download PDF"}
+            <Button type="button" onClick={handleDownloadPdf} disabled={loading || downloading}>
+              {downloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              {downloading ? "Generating PDF…" : "Download PDF"}
             </Button>
           </div>
         </CardContent>
@@ -480,34 +491,61 @@ export default function Report() {
 
       {showPreview ? (
         reportTables.map((table) => (
-          <Card key={table.title}>
-            <CardHeader>
-              <CardTitle>{table.title}</CardTitle>
-              <CardDescription>
-                {loading ? "Loading..." : `${table.rows.length} row(s)`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <Card key={table.title} className="gap-0 overflow-hidden py-0">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+              <h3 className="text-sm font-medium">{table.title}</h3>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {loading
+                  ? "Loading…"
+                  : `${table.rows.length} row${table.rows.length === 1 ? "" : "s"}`}
+              </span>
+            </div>
+            <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
                     {table.columns.map((col) => (
-                      <TableHead key={col}>{col}</TableHead>
+                      <TableHead key={col} className="text-xs">
+                        {col}
+                      </TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {table.rows.slice(0, 300).map((row, idx) => (
-                    <TableRow key={`${table.title}-${idx}`}>
-                      {row.map((cell, cIdx) => (
-                        <TableCell key={`${idx}-${cIdx}`}>{cell}</TableCell>
+                  {loading
+                    ? Array.from({ length: 4 }).map((_, idx) => (
+                        <TableRow key={`${table.title}-skeleton-${idx}`}>
+                          {table.columns.map((col) => (
+                            <TableCell key={col}>
+                              <div className="h-4 w-full max-w-24 animate-pulse rounded-md bg-muted" />
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    : table.rows.slice(0, 300).map((row, idx) => (
+                        <TableRow key={`${table.title}-${idx}`}>
+                          {row.map((cell, cIdx) => (
+                            <TableCell
+                              key={`${idx}-${cIdx}`}
+                              className={
+                                cIdx === 0 ? "font-mono text-xs" : "text-[13px]"
+                              }
+                            >
+                              {cell}
+                            </TableCell>
+                          ))}
+                        </TableRow>
                       ))}
-                    </TableRow>
-                  ))}
                   {!loading && table.rows.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={table.columns.length} className="text-center text-muted-foreground py-8">
-                        No rows for selected filter.
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={table.columns.length} className="py-14">
+                        <div className="flex flex-col items-center justify-center text-center">
+                          <Inbox className="h-8 w-8 text-muted-foreground/50" />
+                          <p className="mt-3 text-sm font-medium">No rows for this filter</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Adjust the filter scope or pick another report type.
+                          </p>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )}
@@ -519,13 +557,15 @@ export default function Report() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>Loads table print</CardTitle>
+            <CardTitle className="text-sm font-medium">Loads table print</CardTitle>
             <CardDescription>
               Preview is intentionally hidden for this report type. Use Download PDF directly.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Badge variant="outline">Rows in export: {reportTables[0]?.rows.length ?? 0}</Badge>
+            <Badge variant="outline" className="tabular-nums">
+              Rows in export: {reportTables[0]?.rows.length ?? 0}
+            </Badge>
           </CardContent>
         </Card>
       )}

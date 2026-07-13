@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Loader2 } from "lucide-react";
 import { ACCOUNT_TYPES } from "@/lib/auth";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
@@ -71,60 +72,56 @@ export function EditEmployeeModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit Employee</DialogTitle>
+          <DialogTitle className="text-base font-semibold">
+            Edit employee
+          </DialogTitle>
           <DialogDescription>
-            Make changes to the employee information here.
+            Update personnel details for {employee.name}.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">Name</Label>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="name">Name</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => handleChange("name", e.target.value)}
-                className="col-span-3"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="rank" className="text-right">Rank</Label>
+            <div className="space-y-2">
+              <Label htmlFor="rank">Rank</Label>
               <Input
                 id="rank"
                 value={formData.rank}
                 onChange={(e) => handleChange("rank", e.target.value)}
-                className="col-span-3"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phone" className="text-right">Phone</Label>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
               <Input
                 id="phone"
                 value={formData.phone}
                 onChange={(e) => handleChange("phone", e.target.value)}
-                className="col-span-3"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="ba_bjo" className="text-right">BA/BJO</Label>
+            <div className="space-y-2">
+              <Label htmlFor="ba_bjo">BA/BJO</Label>
               <Input
                 id="ba_bjo"
                 value={formData.ba_bjo}
                 onChange={(e) => handleChange("ba_bjo", e.target.value)}
-                className="col-span-3"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="account_type" className="text-right">
-                Account Type
-              </Label>
+            <div className="space-y-2">
+              <Label htmlFor="account_type">Account Type</Label>
               <Select
                 value={formData.account_type}
                 onValueChange={(v) => handleChange("account_type", v)}
               >
-                <SelectTrigger id="account_type" className="col-span-3">
+                <SelectTrigger id="account_type" className="w-full">
                   <SelectValue placeholder="Select account type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -138,8 +135,23 @@ export function EditEmployeeModal({
             </div>
           </div>
           <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={loading}
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Save changes"}
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save changes"
+              )}
             </Button>
           </DialogFooter>
         </form>

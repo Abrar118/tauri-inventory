@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { updateLoad } from "@/services/loads";
@@ -72,7 +73,7 @@ export function EditVehicleModal({
       onUpdated({ ...vehicle, ...updates });
       onOpenChange(false);
     } catch (err) {
-      toastError("Failed to update asset", err);
+      toastError("Failed to update load", err);
     } finally {
       setLoading(false);
     }
@@ -85,9 +86,11 @@ export function EditVehicleModal({
         if (!loading) onOpenChange(o);
       }}
     >
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit Load</DialogTitle>
+          <DialogTitle className="text-base font-semibold">
+            Edit Load
+          </DialogTitle>
           <DialogDescription>
             Changes will require re-approval.
           </DialogDescription>
@@ -98,6 +101,7 @@ export function EditVehicleModal({
               <Label htmlFor="edit-cat-no">Catalog No.</Label>
               <Input
                 id="edit-cat-no"
+                className="font-mono"
                 value={form.catalog_no}
                 onChange={(e) => set("catalog_no", e.target.value)}
                 required
@@ -154,6 +158,7 @@ export function EditVehicleModal({
               <Input
                 id="edit-qty"
                 type="number"
+                className="tabular-nums"
                 min={0}
                 value={form.quantity}
                 onChange={(e) => set("quantity", Math.max(0, Number(e.target.value)))}
@@ -180,6 +185,7 @@ export function EditVehicleModal({
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               {loading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>

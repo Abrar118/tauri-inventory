@@ -12,29 +12,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Edit, MoreHorizontal, Search, Trash, UserPlus } from "lucide-react";
+import { Pencil, Search, Trash2, UserPlus, Users } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { getEmployees, deleteEmployee } from "@/services/employees";
 import { EditEmployeeModal } from "../../components/edit-employee-modal";
 import type { Employee } from "@/types";
 import { useAuth } from "@/context/auth-context";
+
+const initials = (name: string) =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 
 export default function EmployeeList() {
   const navigate = useNavigate();
@@ -73,6 +67,8 @@ export default function EmployeeList() {
     setIsEditModalOpen(true);
   };
 
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
   const handleDelete = async (id: string) => {
     try {
       await deleteEmployee(id);
@@ -89,141 +85,189 @@ export default function EmployeeList() {
     );
   };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Employee List</h2>
-        <p className="text-muted-foreground">View and manage personnel</p>
-      </div>
+  const columnCount = canSeeOnline ? 7 : 6;
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search employees..."
-              className="pl-8 w-[300px]"
+              placeholder="Search by name, rank, or role"
+              className="pl-8"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {loading
+              ? "Loading…"
+              : `${filteredEmployees.length} of ${employees.length} employees`}
+          </p>
         </div>
         {canAddEmployee && (
-          <div className="flex items-center gap-2">
-            <Button onClick={() => navigate("/employee/employees?tab=add")}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add Employee
-            </Button>
-          </div>
+          <Button onClick={() => navigate("/employee/employees?tab=add")}>
+            <UserPlus className="mr-2 h-4 w-4" />
+            Add Employee
+          </Button>
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Personnel</CardTitle>
-          <CardDescription>
-            {loading
-              ? "Loading..."
-              : `Showing ${filteredEmployees.length} of ${employees.length} employees`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Rank</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>BA/BJO</TableHead>
-                <TableHead>Account Type</TableHead>
-                {canSeeOnline && <TableHead>Online</TableHead>}
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredEmployees.map((employee) => (
-                <TableRow key={employee.id}>
-                  <TableCell className="font-medium">{employee.name}</TableCell>
-                  <TableCell>{employee.rank}</TableCell>
-                  <TableCell>{employee.phone}</TableCell>
-                  <TableCell>{employee.ba_bjo}</TableCell>
+      <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Rank</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>BA/BJO</TableHead>
+              <TableHead>Account Type</TableHead>
+              {canSeeOnline && <TableHead>Online</TableHead>}
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, index) => (
+                <TableRow key={index} className="hover:bg-transparent">
                   <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={
-                        employee.account_type === "OC"
-                          ? "bg-chart-1/10 text-chart-1 border-chart-1/20"
-                          : employee.account_type === "JCO_NCO"
-                          ? "bg-chart-2/10 text-chart-2 border-chart-2/20"
-                          : employee.account_type === "WORKSHOP_OFFICER"
-                          ? "bg-chart-3/10 text-chart-3 border-chart-3/20"
-                          : employee.account_type === "WORKER"
-                          ? "bg-chart-4/10 text-chart-4 border-chart-4/20"
-                          : "bg-chart-5/10 text-chart-5 border-chart-5/20"
-                      }
-                    >
-                      {employee.account_type.replace("_", " ")}
-                    </Badge>
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-7 w-7 animate-pulse rounded-full bg-muted" />
+                      <div className="h-4 w-32 animate-pulse rounded-md bg-muted" />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="h-4 w-16 animate-pulse rounded-md bg-muted" />
+                  </TableCell>
+                  <TableCell>
+                    <div className="h-4 w-24 animate-pulse rounded-md bg-muted" />
+                  </TableCell>
+                  <TableCell>
+                    <div className="h-4 w-20 animate-pulse rounded-md bg-muted" />
+                  </TableCell>
+                  <TableCell>
+                    <div className="h-5 w-24 animate-pulse rounded-full bg-muted" />
                   </TableCell>
                   {canSeeOnline && (
                     <TableCell>
-                      <span
-                        title={isOnline(employee) ? "Online" : "Offline"}
-                        className={`inline-block h-2.5 w-2.5 rounded-full ${
-                          isOnline(employee)
-                            ? "bg-green-500"
-                            : "bg-muted-foreground/30"
-                        }`}
-                      />
+                      <div className="h-4 w-14 animate-pulse rounded-md bg-muted" />
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <div className="ml-auto h-7 w-16 animate-pulse rounded-md bg-muted" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : filteredEmployees.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columnCount}>
+                  <div className="flex flex-col items-center justify-center py-14 text-center">
+                    <Users className="h-8 w-8 text-muted-foreground/50" />
+                    <p className="mt-3 text-sm font-medium">
+                      No employees found
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {searchTerm
+                        ? "Try a different search term."
+                        : "Add an employee to get started."}
+                    </p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredEmployees.map((employee) => (
+                <TableRow key={employee.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
+                        {initials(employee.name)}
+                      </span>
+                      <span className="font-medium">{employee.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-[13px] text-muted-foreground">
+                    {employee.rank}
+                  </TableCell>
+                  <TableCell className="text-[13px] text-muted-foreground tabular-nums">
+                    {employee.phone}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {employee.ba_bjo}
+                  </TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center rounded-full border border-transparent bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      {employee.account_type.replace("_", " ")}
+                    </span>
+                  </TableCell>
+                  {canSeeOnline && (
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            isOnline(employee)
+                              ? "bg-emerald-500"
+                              : "bg-muted-foreground/30"
+                          }`}
+                        />
+                        {isOnline(employee) ? "Online" : "Offline"}
+                      </span>
                     </TableCell>
                   )}
                   <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        {canAddEmployee && (
-                          <>
-                            <DropdownMenuItem onClick={() => handleEdit(employee)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              <span>Edit</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                          </>
-                        )}
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() =>
-                            employee.id && handleDelete(employee.id)
-                          }
+                    <div className="flex items-center justify-end gap-1">
+                      {canAddEmployee && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          onClick={() => handleEdit(employee)}
                         >
-                          <Trash className="mr-2 h-4 w-4" />
-                          <span>Delete</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Edit {employee.name}</span>
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => employee.id && setPendingDeleteId(employee.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Delete {employee.name}</span>
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       {selectedEmployee && (
         <EditEmployeeModal
+          key={selectedEmployee.id}
           employee={selectedEmployee}
           open={isEditModalOpen}
           onOpenChange={setIsEditModalOpen}
           onUpdated={handleEmployeeUpdated}
         />
       )}
+
+      <ConfirmDeleteDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => !open && setPendingDeleteId(null)}
+        title="Delete employee"
+        description="This permanently removes the employee record. This action cannot be undone."
+        onConfirm={() => {
+          if (pendingDeleteId) handleDelete(pendingDeleteId);
+          setPendingDeleteId(null);
+        }}
+      />
     </div>
   );
 }

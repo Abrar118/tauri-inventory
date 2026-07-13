@@ -11,10 +11,11 @@ import {
   PackageSearch,
   Users,
   Barcode,
-  ChevronLeft,
-  ChevronRight,
+  Shield,
   AlertTriangle,
   Wrench,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useSidebarStore } from "@/store/sidebar-store";
 import { useAuth } from "@/context/auth-context";
@@ -28,24 +29,38 @@ type NavItem = {
   approverOnly?: boolean;
 };
 
-const navGroups: NavItem[][] = [
-  [
-    { name: "Dashboard", path: "/", icon: Home },
-    { name: "Load Entry", path: "/inventory/entry", icon: FilePlus2 },
-    { name: "Out Station Repair", path: "/inventory/out-station-repair", icon: Wrench },
-    { name: "Report", path: "/inventory/report", icon: BarChart2 },
-  ],
-  [
-    { name: "Items", path: "/inventory/items", icon: Package },
-    { name: "Loads", path: "/inventory/loads", icon: Truck },
-    { name: "Demands", path: "/inventory/demands", icon: PackageSearch },
-    { name: "Unserviceable & Lost", path: "/inventory/lost-items", icon: PackageX },
-    { name: "BLR / BER", path: "/inventory/blr-ber", icon: AlertTriangle },
-  ],
-  [
-    { name: "Employee", path: "/employee/employees", icon: Users, approverOnly: true },
-    { name: "Barcode Gen", path: "/inventory/barcode-creation", icon: Barcode },
-  ],
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const navGroups: NavGroup[] = [
+  {
+    label: "Operations",
+    items: [
+      { name: "Dashboard", path: "/", icon: Home },
+      { name: "Load Entry", path: "/inventory/entry", icon: FilePlus2 },
+      { name: "Out Station Repair", path: "/inventory/out-station-repair", icon: Wrench },
+      { name: "Report", path: "/inventory/report", icon: BarChart2 },
+    ],
+  },
+  {
+    label: "Inventory",
+    items: [
+      { name: "Items", path: "/inventory/items", icon: Package },
+      { name: "Loads", path: "/inventory/loads", icon: Truck },
+      { name: "Demands", path: "/inventory/demands", icon: PackageSearch },
+      { name: "Unserviceable & Lost", path: "/inventory/lost-items", icon: PackageX },
+      { name: "BLR / BER", path: "/inventory/blr-ber", icon: AlertTriangle },
+    ],
+  },
+  {
+    label: "Administration",
+    items: [
+      { name: "Employee", path: "/employee/employees", icon: Users, approverOnly: true },
+      { name: "Barcode Gen", path: "/inventory/barcode-creation", icon: Barcode },
+    ],
+  },
 ];
 
 export default function Sidebar() {
@@ -58,76 +73,96 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        "hidden md:flex h-screen flex-col border-r bg-sidebar transition-all duration-300 shrink-0",
-        collapsed ? "w-16" : "w-64",
+        "hidden md:flex h-screen flex-col bg-sidebar border-r border-sidebar-border transition-all duration-200 shrink-0",
+        collapsed ? "w-14" : "w-60",
       )}
     >
-      {/* Header */}
+      {/* Brand */}
       <div
         className={cn(
-          "flex h-16 items-center border-b shrink-0",
-          collapsed ? "justify-center px-0" : "justify-between px-4",
+          "flex h-13 items-center shrink-0 px-3",
+          collapsed ? "justify-center" : "justify-between",
         )}
       >
         {!collapsed && (
-          <h2 className="text-base font-bold text-sidebar-primary truncate">
-            127 Field Workshop EME
-          </h2>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-md bg-primary shadow-sm">
+              <Shield className="h-3.5 w-3.5 text-primary-foreground" />
+            </div>
+            <span className="truncate text-[13px] font-semibold tracking-tight text-sidebar-accent-foreground">
+              127 Field Workshop
+            </span>
+          </div>
         )}
         <button
           onClick={toggle}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent/20 transition-colors shrink-0"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
+            <PanelLeftOpen className="h-4 w-4" />
           ) : (
-            <ChevronLeft className="h-4 w-4" />
+            <PanelLeftClose className="h-4 w-4" />
           )}
         </button>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3">
-        {navGroups.map((group, groupIndex) => (
-          <div key={groupIndex}>
-            <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-2")}>
-              {group.map((item) => {
-                if (item.approverOnly && !canSeeApproverItems) {
-                  return null;
-                }
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-4 pt-1">
+        {navGroups.map((group, groupIndex) => {
+          const visibleItems = group.items.filter(
+            (item) => !item.approverOnly || canSeeApproverItems,
+          );
+          if (visibleItems.length === 0) return null;
 
-                const isActive =
-                  item.path === "/"
-                    ? location.pathname === "/"
-                    : location.pathname.startsWith(item.path);
+          return (
+            <div key={group.label} className={cn(groupIndex > 0 && "mt-4")}>
+              {collapsed ? (
+                groupIndex > 0 && (
+                  <div className="mx-2 mb-3 border-t border-sidebar-border" />
+                )
+              ) : (
+                <p className="mb-1 px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70 select-none">
+                  {group.label}
+                </p>
+              )}
 
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    title={collapsed ? item.name : undefined}
-                    className={cn(
-                      "flex items-center rounded-lg py-2 text-sm font-medium transition-all hover:bg-chart-2/10",
-                      collapsed ? "justify-center px-0" : "gap-3 px-3",
-                      isActive
-                        ? "bg-chart-2/15 text-chart-2"
-                        : "text-sidebar-foreground",
-                    )}
-                  >
-                    <item.icon className="h-5 w-5 shrink-0" />
-                    {!collapsed && <span>{item.name}</span>}
-                  </Link>
-                );
-              })}
+              <div className="space-y-px">
+                {visibleItems.map((item) => {
+                  const isActive =
+                    item.path === "/"
+                      ? location.pathname === "/"
+                      : location.pathname.startsWith(item.path);
+
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      title={collapsed ? item.name : undefined}
+                      className={cn(
+                        "group flex items-center rounded-md py-1.5 text-[13px] font-medium transition-colors",
+                        collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      )}
+                    >
+                      <item.icon
+                        className={cn(
+                          "h-4 w-4 shrink-0 transition-colors",
+                          isActive
+                            ? "text-primary"
+                            : "text-muted-foreground group-hover:text-sidebar-accent-foreground",
+                        )}
+                      />
+                      {!collapsed && <span className="truncate">{item.name}</span>}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-
-            {/* Separator between groups */}
-            {groupIndex < navGroups.length - 1 && (
-              <div className="my-2 border-t border-sidebar-border mx-2" />
-            )}
-          </div>
-        ))}
+          );
+        })}
       </nav>
     </aside>
   );

@@ -3,7 +3,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -20,7 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Download, Printer, Search, X } from "lucide-react";
+import { Barcode, Download, Loader2, Printer, Search, X } from "lucide-react";
 import { goeyToast } from "goey-toast";
 import { toastError } from "@/lib/toast";
 import { getItems } from "@/services/items";
@@ -205,21 +204,23 @@ export default function BarcodeCreation() {
   const isReady = selectedLoads.length > 0 && !generating && previews.size > 0;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Barcode Creation</h2>
-        <p className="text-muted-foreground">
-          Generate barcodes for inventory items and vehicles
-        </p>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Barcode Creation</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Generate scannable barcodes for items and catalog loads.
+          </p>
+        </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* Left panel: asset selection */}
         <Card>
           <CardHeader>
-            <CardTitle>Select Loads</CardTitle>
+            <CardTitle className="text-sm font-medium">Select loads</CardTitle>
             <CardDescription>
-              Choose items or vehicles to generate barcodes for
+              Choose items or catalog loads to encode.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -245,28 +246,29 @@ export default function BarcodeCreation() {
                     onChange={(e) => setItemSearch(e.target.value)}
                   />
                 </div>
-                <div className="mt-2 space-y-1.5 max-h-[380px] overflow-y-auto">
+                <div className="mt-2 max-h-[380px] space-y-1.5 overflow-y-auto">
                   {filteredItems.length === 0 ? (
-                    <p className="text-center text-sm text-muted-foreground py-6">
-                      No items found
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      No items match your search.
                     </p>
                   ) : (
                     filteredItems.map((item) => (
-                      <div
+                      <button
                         key={item.id}
-                        className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 cursor-pointer"
+                        type="button"
+                        className="flex w-full items-center justify-between rounded-lg border p-3 text-left transition-colors hover:bg-muted/50"
                         onClick={() => handleAdd({ kind: "item", data: item })}
                       >
                         <div className="min-w-0">
-                          <div className="font-medium truncate">{item.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {item.type} · {item.item_no}
+                          <div className="truncate text-sm font-medium">{item.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {item.type} · <span className="font-mono">{item.item_no}</span>
                           </div>
                         </div>
-                        <Badge className="shrink-0 ml-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 border-0">
-                          ITEM
-                        </Badge>
-                      </div>
+                        <span className="ml-2 inline-flex shrink-0 items-center rounded-full border border-sky-500/25 bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
+                          Item
+                        </span>
+                      </button>
                     ))
                   )}
                 </div>
@@ -284,32 +286,34 @@ export default function BarcodeCreation() {
                     onChange={(e) => setCatalogSearch(e.target.value)}
                   />
                 </div>
-                <div className="mt-2 space-y-1.5 max-h-[380px] overflow-y-auto">
+                <div className="mt-2 max-h-[380px] space-y-1.5 overflow-y-auto">
                   {filteredCatalog.length === 0 ? (
-                    <p className="text-center text-sm text-muted-foreground py-6">
-                      No assets found
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      No catalog loads match your search.
                     </p>
                   ) : (
                     filteredCatalog.map((asset) => (
-                      <div
+                      <button
                         key={asset.id}
-                        className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 cursor-pointer"
+                        type="button"
+                        className="flex w-full items-center justify-between rounded-lg border p-3 text-left transition-colors hover:bg-muted/50"
                         onClick={() =>
                           handleAdd({ kind: "catalog", data: asset })
                         }
                       >
                         <div className="min-w-0">
-                          <div className="font-medium truncate">
+                          <div className="truncate text-sm font-medium">
                             {asset.name}
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            {asset.category} · {asset.catalog_type} · {asset.catalog_no}
+                          <div className="truncate text-xs text-muted-foreground">
+                            {asset.category} · {asset.catalog_type} ·{" "}
+                            <span className="font-mono">{asset.catalog_no}</span>
                           </div>
                         </div>
-                        <Badge className="shrink-0 ml-2 bg-orange-500/10 text-orange-600 dark:text-orange-400 border-0">
-                          {asset.category.toUpperCase().slice(0, 3)}
-                        </Badge>
-                      </div>
+                        <span className="ml-2 inline-flex shrink-0 items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                          {asset.category}
+                        </span>
+                      </button>
                     ))
                   )}
                 </div>
@@ -321,8 +325,8 @@ export default function BarcodeCreation() {
         {/* Right panel: config + preview + actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Barcode Generation</CardTitle>
-            <CardDescription>Configure, preview, and export</CardDescription>
+            <CardTitle className="text-sm font-medium">Barcode generation</CardTitle>
+            <CardDescription>Configure, preview, and export.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Barcode type selector */}
@@ -342,26 +346,26 @@ export default function BarcodeCreation() {
 
             {/* Selected assets with inline barcode preview */}
             <div className="space-y-2">
-              <Label>
-                Selected ({selectedLoads.length}){" "}
-                {generating && (
-                  <span className="text-xs text-muted-foreground font-normal">
-                    — generating…
-                  </span>
-                )}
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label>Selected</Label>
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
+                  {generating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {generating
+                    ? "Generating…"
+                    : `${selectedLoads.length} selected`}
+                </span>
+              </div>
 
               {selectedLoads.length === 0 ? (
-                <div className="rounded-lg border border-dashed p-6 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    No assets selected
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Search and click an asset in the left panel
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-14 text-center">
+                  <Barcode className="h-8 w-8 text-muted-foreground/50" />
+                  <p className="mt-3 text-sm font-medium">No loads selected</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Search and click a load on the left to queue it for generation.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[320px] overflow-y-auto pr-0.5">
+                <div className="max-h-[320px] space-y-2 overflow-y-auto pr-0.5">
                   {selectedLoads.map((asset) => {
                     const key = assetKey(asset);
                     const base64 = previews.get(key);
@@ -369,37 +373,37 @@ export default function BarcodeCreation() {
                     return (
                       <div
                         key={key}
-                        className="flex items-center gap-3 rounded-lg border p-2"
+                        className="flex items-center gap-3 rounded-lg border bg-card p-2"
                       >
                         {/* Barcode thumbnail */}
-                        <div className="h-10 w-20 shrink-0 flex items-center justify-center rounded bg-white border">
+                        <div className="flex h-10 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-white">
                           {base64 ? (
                             <img
                               src={`data:image/png;base64,${base64}`}
-                              alt={value}
+                              alt={`Barcode for ${value}`}
                               className="h-10 w-auto max-w-[76px] object-contain"
                             />
                           ) : (
-                            <div className="h-6 w-16 rounded bg-muted animate-pulse" />
+                            <div className="h-6 w-16 animate-pulse rounded-md bg-muted" />
                           )}
                         </div>
 
                         {/* Load info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
                             {asset.data.name}
                           </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <Badge
-                              className={`text-xs px-1.5 py-0 border-0 ${
+                          <div className="mt-0.5 flex items-center gap-1.5">
+                            <span
+                              className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[11px] font-medium ${
                                 asset.kind === "item"
-                                  ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                  : "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                                  ? "border-sky-500/25 bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                                  : "border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400"
                               }`}
                             >
-                              {asset.kind === "item" ? "ITEM" : asset.data.category.toUpperCase().slice(0, 3)}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground font-mono">
+                              {asset.kind === "item" ? "Item" : asset.data.category}
+                            </span>
+                            <span className="font-mono text-xs text-muted-foreground">
                               {value}
                             </span>
                           </div>
@@ -407,12 +411,14 @@ export default function BarcodeCreation() {
 
                         {/* Remove */}
                         <Button
+                          type="button"
                           variant="ghost"
                           size="icon"
-                          className="shrink-0 h-7 w-7"
+                          aria-label={`Remove ${value}`}
+                          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
                           onClick={() => handleRemove(key)}
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     );
@@ -424,20 +430,26 @@ export default function BarcodeCreation() {
 
           <CardFooter className="flex gap-2">
             <Button
+              type="button"
               className="flex-1"
               variant="outline"
               disabled={!isReady}
               onClick={handleDownload}
             >
-              <Download className="mr-2 h-4 w-4" />
+              <Download className="h-4 w-4" />
               Download PNG
             </Button>
             <Button
+              type="button"
               className="flex-1"
               disabled={!isReady}
               onClick={handlePrint}
             >
-              <Printer className="mr-2 h-4 w-4" />
+              {generating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4" />
+              )}
               Print
             </Button>
           </CardFooter>

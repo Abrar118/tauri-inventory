@@ -39,12 +39,12 @@ No dedicated `npm test` or lint script is configured currently; use `npm run bui
 - For `Load`, the quantity field is required and used for BLR/BER deductions.
 
 ## UI Design Direction
-- Visual tone: vibrant, modern command-center UI for contemporary military units.
-- Avoid default shadcn-looking output; keep the design language custom and product-specific.
-- Color direction: electric/cobalt blues as primary, signal-lime accents, neutral steel/slate supports, clear danger reds.
-- Surfaces: use layered gradients, soft-glass cards, and high-clarity contrast (not flat white-only panels).
-- Shape system: medium/large rounded corners, clean spacing rhythm, and confident component silhouettes.
-- Motion: subtle lift/focus transitions on interactive elements; avoid noisy animations.
+- Visual tone: Linear-macOS-style — light mode is white + purple, dark mode is near-black + purple. Tokens in `src/App.css`.
+- Surfaces: flat `bg-card` panels with 1px hairline borders, small radii, subtle shadows. No gradients or glass effects on cards.
+- Purple (`primary`) only for primary actions, active states, links, and focus. Status colors as low-opacity dot pills: emerald (active/completed), amber (pending), red (rejected/lost/BER), sky (info/BLR).
+- Typography: system font stack, compact and crisp — `text-lg font-semibold tracking-tight` titles, `text-sm` body, `tabular-nums` numbers, `font-mono text-xs` IDs.
+- Motion: color/opacity transitions only; no translate/scale hover effects.
+- Page anatomy: in-page header (title + muted context line + actions), `space-y-5` sections, skeleton loading states, dashed-border empty states.
 - Keep all UI updates responsive for desktop and mobile breakpoints.
 
 ## Testing Guidelines

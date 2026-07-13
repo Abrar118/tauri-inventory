@@ -10,7 +10,15 @@ export default function EmployeesPage() {
   const tab = searchParams.get("tab") === "add" ? "add" : "list";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Employees</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Manage workshop personnel and their account access.
+          </p>
+        </div>
+      </div>
       <Tabs
         value={tab}
         onValueChange={(value) => {
